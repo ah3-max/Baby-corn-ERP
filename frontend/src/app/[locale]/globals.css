@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Toast 動畫 ─── */
+@keyframes toast-slide-in {
+  from { opacity: 0; transform: translateX(100%); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.toast-slide-in {
+  animation: toast-slide-in 0.2s ease-out forwards;
+}
+
+/* ─── 全域字體 ─── */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC',
+    'Noto Sans Thai', Roboto, 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── 共用元件樣式 ─── */
+@layer components {
+  .input {
+    @apply w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm
+           bg-white
+           focus:outline-none focus:ring-2 focus:ring-primary-500/40 focus:border-primary-500
+           disabled:bg-gray-50 disabled:text-gray-400
+           transition-all duration-150;
+  }
+
+  .btn-primary {
+    @apply px-5 py-2.5 bg-primary-600 text-white text-sm font-medium rounded-lg
+           hover:bg-primary-700 active:bg-primary-800
+           focus:outline-none focus:ring-2 focus:ring-primary-500/40
+           disabled:opacity-50 disabled:cursor-not-allowed
+           transition-all duration-150 shadow-sm;
+  }
+
+  .btn-secondary {
+    @apply px-5 py-2.5 bg-white text-gray-700 text-sm font-medium rounded-lg
+           border border-gray-300
+           hover:bg-gray-50 active:bg-gray-100
+           focus:outline-none focus:ring-2 focus:ring-gray-300/40
+           disabled:opacity-50 disabled:cursor-not-allowed
+           transition-all duration-150;
+  }
+
+  .btn-danger {
+    @apply px-5 py-2.5 bg-red-600 text-white text-sm font-medium rounded-lg
+           hover:bg-red-700 active:bg-red-800
+           focus:outline-none focus:ring-2 focus:ring-red-500/40
+           disabled:opacity-50 disabled:cursor-not-allowed
+           transition-all duration-150 shadow-sm;
+  }
+
+  .card {
+    @apply bg-white rounded-xl border border-gray-200/80 shadow-sm;
+  }
+
+  .badge-active {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+           bg-green-50 text-green-700 ring-1 ring-green-600/20;
+  }
+
+  .badge-inactive {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+           bg-gray-100 text-gray-500 ring-1 ring-gray-500/10;
+  }
+}
+
+/* ─── Scrollbar 美化 ─── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
