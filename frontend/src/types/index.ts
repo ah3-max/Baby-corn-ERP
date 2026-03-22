@@ -80,6 +80,23 @@ export interface RoleUpdate {
   permission_ids?: string[];
 }
 
+// ─── 品項相關 ────────────────────────────────────────
+
+export interface ProductType {
+  id:               string;
+  code:             string;
+  batch_prefix:     string;
+  name_zh:          string;
+  name_en:          string | null;
+  name_th:          string | null;
+  quality_schema:   object[];
+  size_grades:      object[];
+  processing_steps: string[];
+  storage_req:      Record<string, number>;
+  shelf_life_days:  number | null;
+  is_active:        boolean;
+}
+
 // ─── 採購相關 ────────────────────────────────────────
 
 export type PurchaseStatus = 'draft' | 'confirmed' | 'in_transit' | 'arrived' | 'closed';
@@ -98,6 +115,8 @@ export interface PurchaseOrder {
   supplier: PurchaseSupplierSimple | null;
   source_farmer_id: string | null;
   source_farmer: PurchaseSupplierSimple | null;
+  product_type_id: string | null;
+  product_type: { id: string; code: string; name_zh: string } | null;
   estimated_weight: number;
   unit_price: number;
   total_amount: number;
@@ -159,6 +178,8 @@ export interface Batch {
   batch_no: string;
   purchase_order_id: string;
   purchase_order: BatchPO | null;
+  product_type_id: string | null;
+  product_type: { id: string; code: string; name_zh: string } | null;
   initial_weight: number;
   current_weight: number;
   status: BatchStatus;
@@ -274,6 +295,58 @@ export const SHIPMENT_STATUS_NEXT: Record<string, string | null> = {
   customs_tw: 'arrived_tw',
   arrived_tw: null,
 };
+
+// ─── 發票相關 ────────────────────────────────────────
+
+export interface InvoiceItem {
+  id:             string;
+  batch_id:       string | null;
+  description:    string;
+  hs_code:        string | null;
+  quantity_kg:    number | null;
+  quantity_boxes: number | null;
+  unit_price:     number | null;
+  amount:         number | null;
+  origin_country: string | null;
+  notes:          string | null;
+}
+
+export interface Invoice {
+  id:               string;
+  invoice_no:       string;
+  shipment_id:      string;
+  invoice_date:     string;
+  due_date:         string | null;
+  seller_name:      string;
+  seller_address:   string | null;
+  seller_tax_id:    string | null;
+  seller_contact:   string | null;
+  seller_phone:     string | null;
+  seller_email:     string | null;
+  buyer_name:       string;
+  buyer_address:    string | null;
+  buyer_tax_id:     string | null;
+  buyer_contact:    string | null;
+  buyer_phone:      string | null;
+  buyer_email:      string | null;
+  currency:         string;
+  incoterms:        string | null;
+  payment_terms:    string | null;
+  subtotal:         number | null;
+  freight_charge:   number | null;
+  insurance_charge: number | null;
+  other_charge:     number | null;
+  total_amount:     number | null;
+  transport_mode:   string | null;
+  bl_awb_no:        string | null;
+  vessel_flight:    string | null;
+  port_of_loading:  string | null;
+  port_of_discharge:string | null;
+  status:           string;
+  notes:            string | null;
+  items:            InvoiceItem[];
+  created_at:       string;
+}
 
 // ─── 客戶相關 ────────────────────────────────────────
 

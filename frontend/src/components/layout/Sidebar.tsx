@@ -21,15 +21,16 @@ const NAV_ITEMS = [
   { key: 'batches',    icon: Package,         href: '/batches',   module: 'batch' },
   { key: 'factory',    icon: Factory,         href: '/factory',   module: 'qc' },
   { key: 'shipments',  icon: Ship,            href: '/shipments', module: 'shipment' },
-  { key: 'inventory',  icon: Warehouse,       href: '/inventory', module: 'inventory' },
-  { key: 'sales',      icon: BarChart3,       href: '/sales',     module: 'sales' },
-  { key: 'cost',       icon: DollarSign,      href: '/cost',      module: 'cost' },
-  { key: 'finance',    icon: Archive,         href: '/finance',   module: 'report' },
+  { key: 'inventory',  icon: Warehouse,       href: '/inventory', module: 'stock' },
+  { key: 'sales',      icon: BarChart3,       href: '/sales',     module: 'daily_sale' },
+  { key: 'cost',       icon: DollarSign,      href: '/cost',      module: 'cost_sheet' },
+  { key: 'finance',    icon: Archive,         href: '/finance',   module: 'profit' },
 ];
 
 const SETTINGS_ITEMS = [
-  { key: 'users',  href: '/settings/users', module: 'user' },
-  { key: 'roles',  href: '/settings/roles', module: 'role' },
+  { key: 'users',        href: '/settings/users',         module: 'user' },
+  { key: 'roles',        href: '/settings/roles',         module: 'user' },
+  { key: 'productTypes', href: '/settings/product-types', module: 'system' },
 ];
 
 export default function Sidebar() {
@@ -51,7 +52,7 @@ export default function Sidebar() {
 
       {/* 主導航 */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        {NAV_ITEMS.filter(({ module }) => !module || hasPermission(module, 'view')).map(({ key, icon: Icon, href }) => {
+        {NAV_ITEMS.filter(({ module }) => !module || hasPermission(module, 'read')).map(({ key, icon: Icon, href }) => {
           const isActive = cleanPath === href || (href !== '/' && cleanPath.startsWith(href));
           return (
             <Link
@@ -79,7 +80,7 @@ export default function Sidebar() {
         <p className="px-3 mb-2 text-[11px] font-semibold text-gray-600 uppercase tracking-wider">
           {t('settings')}
         </p>
-        {SETTINGS_ITEMS.filter(({ module }) => hasPermission(module, 'view')).map(({ key, href }) => {
+        {SETTINGS_ITEMS.filter(({ module }) => hasPermission(module, 'read')).map(({ key, href }) => {
           const isActive = cleanPath.startsWith(href);
           return (
             <Link

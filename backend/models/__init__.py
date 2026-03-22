@@ -8,6 +8,7 @@ from models.qc import QCRecord
 from models.oem_factory import OEMFactory
 from models.processing import ProcessingOrder, ProcessingBatchLink
 from models.shipment import Shipment, ShipmentBatch
+from models.invoice import Invoice, InvoiceItem
 from models.customer import Customer
 from models.sales import SalesOrder, SalesOrderItem, SaleBatchAllocation
 from models.daily_sale import DailySale, DailySaleItem, MarketPrice

@@ -207,6 +207,31 @@ PRODUCT_TYPES = [
         "storage_req": {"temp_min": 2, "temp_max": 5, "humidity_pct": 90},
         "shelf_life_days": 14,
     },
+    {
+        "code": "durian",
+        "batch_prefix": "DR",
+        "name_zh": "榴槤",
+        "name_en": "Durian",
+        "name_th": "ทุเรียน",
+        "quality_schema": [
+            {"field": "flesh_color",     "label_zh": "果肉色澤",    "type": "select",  "options": ["golden", "yellow", "pale", "brown"]},
+            {"field": "sweetness_brix",  "label_zh": "甜度(Brix)",  "type": "numeric", "min": 20, "max": 40},
+            {"field": "aroma_grade",     "label_zh": "香氣等級",    "type": "select",  "options": ["strong", "medium", "mild", "off"]},
+            {"field": "shell_crack",     "label_zh": "裂果程度",    "type": "select",  "options": ["none", "slight", "moderate", "severe"]},
+            {"field": "flesh_texture",   "label_zh": "果肉質地",    "type": "select",  "options": ["creamy", "firm", "dry", "watery"]},
+            {"field": "pest_damage",     "label_zh": "蟲害",        "type": "boolean"},
+            {"field": "freshness_score", "label_zh": "新鮮度評分",  "type": "numeric", "min": 1,  "max": 10},
+        ],
+        "size_grades": [
+            {"grade": "S",  "label_zh": "小", "min_kg": 1.0, "max_kg": 2.0},
+            {"grade": "M",  "label_zh": "中", "min_kg": 2.0, "max_kg": 3.5},
+            {"grade": "L",  "label_zh": "大", "min_kg": 3.5, "max_kg": 5.0},
+            {"grade": "XL", "label_zh": "特大", "min_kg": 5.0, "max_kg": 8.0},
+        ],
+        "processing_steps": ["選果", "清潔", "分級", "秤重", "包裝", "急凍"],
+        "storage_req": {"temp_min": -25, "temp_max": -18, "humidity_pct": 85},
+        "shelf_life_days": 5,
+    },
 ]
 
 # ═══════════════════════════════════════════════════════════════════
@@ -218,6 +243,30 @@ SYSTEM_SETTINGS = [
     {"key": "stock_age_critical_days", "value": 10,                                "description": "庫存庫齡危急天數"},
     {"key": "supported_locales",       "value": ["zh-TW", "en", "th"],             "description": "支援的語系列表"},
     {"key": "default_locale",          "value": "zh-TW",                           "description": "預設語系"},
+    {
+        "key": "seller_company",
+        "value": {
+            "name": "BabyCorn Export Co., Ltd.",
+            "address": "123 Moo 5, Nakhon Ratchasima, Thailand 30000",
+            "tax_id": "",
+            "contact": "",
+            "phone": "",
+            "email": ""
+        },
+        "description": "泰方賣方公司資訊（發票用）"
+    },
+    {
+        "key": "buyer_company",
+        "value": {
+            "name": "玉米筍國際貿易有限公司",
+            "address": "台灣宜蘭縣五結鄉利成路二段88號",
+            "tax_id": "",
+            "contact": "",
+            "phone": "",
+            "email": ""
+        },
+        "description": "台方買方公司資訊（發票用）"
+    },
 ]
 
 

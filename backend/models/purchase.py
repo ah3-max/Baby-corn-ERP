@@ -20,6 +20,7 @@ class PurchaseOrder(Base):
     order_date        = Column(Date, nullable=False, default=date.today)         # 採購日期
     supplier_id       = Column(UUID(as_uuid=True), ForeignKey("suppliers.id"), nullable=False)   # 採購來源（農民/中盤商）
     source_farmer_id  = Column(UUID(as_uuid=True), ForeignKey("suppliers.id"), nullable=True)    # 中盤商時的原始農民來源
+    product_type_id   = Column(UUID(as_uuid=True), ForeignKey("product_types.id"), nullable=True)  # 品項類型
 
     # 重量與價格
     estimated_weight  = Column(Numeric(10, 2), nullable=False)                   # 預計重量（kg）
@@ -48,4 +49,5 @@ class PurchaseOrder(Base):
     # 關聯
     supplier       = relationship("Supplier", foreign_keys=[supplier_id])
     source_farmer  = relationship("Supplier", foreign_keys=[source_farmer_id])
+    product_type   = relationship("ProductType", foreign_keys=[product_type_id])
     creator        = relationship("User", foreign_keys=[created_by])

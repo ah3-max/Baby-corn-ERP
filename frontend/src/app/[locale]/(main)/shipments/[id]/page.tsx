@@ -19,10 +19,10 @@ import {
   Calendar, DollarSign, FileText, Pencil, X, Save,
   Printer, Download, BoxesIcon,
 } from 'lucide-react';
-import { shipmentsApi, inventoryApi } from '@/lib/api';
+import { shipmentsApi, inventoryApi, invoicesApi } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';
 import { useUser } from '@/contexts/UserContext';
-import type { Shipment, ShipmentStatus, InventoryLot } from '@/types';
+import type { Shipment, ShipmentStatus, InventoryLot, Invoice } from '@/types';
 import { SHIPMENT_STATUS_NEXT } from '@/types';
 import { exportShipmentToExcel } from '@/lib/exportExcel';
 
@@ -135,6 +135,7 @@ export default function ShipmentDetailPage() {
   const [loading, setLoading]     = useState(true);
   const [advancing, setAdvancing] = useState(false);
   const [inventoryLots, setInventoryLots] = useState<InventoryLot[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
 
   const fetchShipment = async () => {
     try {
@@ -161,7 +162,14 @@ export default function ShipmentDetailPage() {
     }
   };
 
-  useEffect(() => { fetchShipment(); }, []);
+  const fetchInvoices = async () => {
+    try {
+      const { data } = await invoicesApi.list({ shipment_id: params.id as string });
+      setInvoices(data);
+    } catch { /* 非關鍵 */ }
+  };
+
+  useEffect(() => { fetchShipment(); fetchInvoices(); }, []);
 
   const handleAdvance = async () => {
     if (!shipment) return;
@@ -624,6 +632,128 @@ export default function ShipmentDetailPage() {
             )}
           </div>
         )}
+
+        {/* ── 發票 Invoice ── */}
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <FileText size={16} className="text-blue-500" />
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+                發票 INVOICE
+              </h2>
+              <span className="text-xs text-gray-400">({invoices.length})</span>
+            </div>
+            <button
+              onClick={async () => {
+                try {
+                  // 取得公司預設資訊
+                  const { data: defaults } = await invoicesApi.getCompanyDefaults();
+                  const seller = defaults.seller_company || {};
+                  const buyer = defaults.buyer_company || {};
+
+                  // 從批次自動帶入明細
+                  const items = shipment.shipment_batches.map((sb: any) => ({
+                    batch_id: sb.batch_id,
+                    description: `Fresh Baby Corn / 新鮮玉米筍 - Batch ${sb.batch?.batch_no || ''}`,
+                    hs_code: '0709.99',
+                    quantity_kg: Number(sb.batch?.current_weight || 0),
+                    quantity_boxes: null,
+                    unit_price: null,
+                    amount: null,
+                    origin_country: 'Thailand',
+                  }));
+
+                  const payload = {
+                    shipment_id: shipment.id,
+                    invoice_date: new Date().toISOString().split('T')[0],
+                    seller_name: seller.name || '',
+                    seller_address: seller.address || '',
+                    seller_tax_id: seller.tax_id || '',
+                    seller_contact: seller.contact || '',
+                    seller_phone: seller.phone || '',
+                    seller_email: seller.email || '',
+                    buyer_name: buyer.name || '',
+                    buyer_address: buyer.address || '',
+                    buyer_tax_id: buyer.tax_id || '',
+                    buyer_contact: buyer.contact || '',
+                    buyer_phone: buyer.phone || '',
+                    buyer_email: buyer.email || '',
+                    currency: 'THB',
+                    incoterms: 'FOB',
+                    transport_mode: shipment.transport_mode,
+                    bl_awb_no: shipment.awb_no || shipment.bl_no || '',
+                    vessel_flight: shipment.vessel_name || `${shipment.airline || ''} ${shipment.flight_no || ''}`.trim(),
+                    port_of_loading: shipment.port_of_loading || '',
+                    port_of_discharge: shipment.port_of_discharge || '',
+                    items,
+                  };
+                  await invoicesApi.create(payload);
+                  showToast('發票建立成功', 'success');
+                  fetchInvoices();
+                } catch (e: any) {
+                  showToast(e?.response?.data?.detail || '建立失敗', 'error');
+                }
+              }}
+              className="btn-primary flex items-center gap-1.5 text-sm py-1.5 px-3"
+            >
+              <FileText size={13} /> 開立發票
+            </button>
+          </div>
+
+          {invoices.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              <FileText size={28} className="mx-auto mb-2 opacity-30" />
+              <p className="text-sm">此出口單尚未開立發票</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {invoices.map(inv => (
+                <div key={inv.id} className="flex items-center justify-between p-3 bg-white rounded-xl border border-gray-100 hover:border-blue-200 transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div>
+                      <p className="font-mono text-sm font-semibold text-blue-600">{inv.invoice_no}</p>
+                      <p className="text-xs text-gray-400">{inv.invoice_date}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-700">{inv.seller_name} → {inv.buyer_name}</p>
+                      <p className="text-xs text-gray-400">{inv.currency} · {inv.incoterms || '—'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-gray-800">
+                        {inv.currency} {Number(inv.total_amount || 0).toLocaleString('en', { minimumFractionDigits: 2 })}
+                      </p>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        inv.status === 'paid' ? 'bg-green-100 text-green-700' :
+                        inv.status === 'sent' ? 'bg-blue-100 text-blue-700' :
+                        inv.status === 'confirmed' ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-gray-100 text-gray-500'
+                      }`}>
+                        {inv.status === 'draft' ? '草稿' : inv.status === 'confirmed' ? '已確認' : inv.status === 'sent' ? '已寄出' : '已付款'}
+                      </span>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const { data: html } = await invoicesApi.getHtml(inv.id);
+                          const win = window.open('', '_blank');
+                          if (win) { win.document.write(html); win.document.close(); }
+                        } catch {
+                          showToast('無法產生發票', 'error');
+                        }
+                      }}
+                      className="p-2 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                      title="列印 / 匯出"
+                    >
+                      <Printer size={16} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* ── 備註 ── */}
         {shipment.notes && (

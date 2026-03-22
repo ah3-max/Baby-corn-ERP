@@ -11,7 +11,7 @@ from routers import (
     auth, users, roles, suppliers, purchases, batches, qc, shipments,
     customers, sales, analytics, costs, inventory, daily_sales,
     oem_factories, processing, payments, notifications,
-    attachments, exchange_rates, system_settings,
+    attachments, exchange_rates, system_settings, product_types, invoices,
 )
 from config import settings
 from database import Base, engine
@@ -62,6 +62,8 @@ app.include_router(attachments.router,     prefix="/api/v1")
 app.include_router(exchange_rates.router,  prefix="/api/v1")
 app.include_router(daily_sales.router,     prefix="/api/v1")
 app.include_router(system_settings.router, prefix="/api/v1")
+app.include_router(product_types.router,  prefix="/api/v1")
+app.include_router(invoices.router,       prefix="/api/v1")
 
 
 # ─── 靜態檔案：上傳目錄對外開放 ───────────────────────

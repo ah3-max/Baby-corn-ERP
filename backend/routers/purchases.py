@@ -52,6 +52,7 @@ def list_purchases(
     q = db.query(PurchaseOrder).options(
         joinedload(PurchaseOrder.supplier),
         joinedload(PurchaseOrder.source_farmer),
+        joinedload(PurchaseOrder.product_type),
     )
     if status_filter:
         q = q.filter(PurchaseOrder.status == status_filter)
@@ -81,6 +82,7 @@ def create_purchase(
         order_date=payload.order_date,
         supplier_id=payload.supplier_id,
         source_farmer_id=payload.source_farmer_id,
+        product_type_id=payload.product_type_id,
         estimated_weight=payload.estimated_weight,
         unit_price=payload.unit_price,
         total_amount=total,
@@ -96,6 +98,7 @@ def create_purchase(
     return db.query(PurchaseOrder).options(
         joinedload(PurchaseOrder.supplier),
         joinedload(PurchaseOrder.source_farmer),
+        joinedload(PurchaseOrder.product_type),
     ).filter(PurchaseOrder.id == po.id).first()
 
 
@@ -109,6 +112,7 @@ def get_purchase(
     po = db.query(PurchaseOrder).options(
         joinedload(PurchaseOrder.supplier),
         joinedload(PurchaseOrder.source_farmer),
+        joinedload(PurchaseOrder.product_type),
     ).filter(PurchaseOrder.id == po_id).first()
     if not po:
         raise HTTPException(status_code=404, detail="採購單不存在")
@@ -143,6 +147,7 @@ def update_purchase(
     return db.query(PurchaseOrder).options(
         joinedload(PurchaseOrder.supplier),
         joinedload(PurchaseOrder.source_farmer),
+        joinedload(PurchaseOrder.product_type),
     ).filter(PurchaseOrder.id == po_id).first()
 
 
@@ -204,15 +209,24 @@ def confirm_arrival(
 
     # ─── 自動建立批次（一條龍：到廠即建批次，省去手動步驟）───
     batch_no = _generate_batch_no(db)
+    # 自動帶入品項的保質期（若採購單有指定品項）
+    default_shelf_life = 23
+    if po.product_type_id:
+        from models.product_type import ProductType
+        pt = db.query(ProductType).filter(ProductType.id == po.product_type_id).first()
+        if pt and pt.shelf_life_days:
+            default_shelf_life = pt.shelf_life_days
+
     batch = Batch(
         batch_no          = batch_no,
         purchase_order_id = po.id,
-        initial_weight    = usable,        # 直接使用可用重量
+        product_type_id   = po.product_type_id,  # 從採購單帶入品項
+        initial_weight    = usable,
         current_weight    = usable,
         status            = "processing",
         note              = f"由採購單 {po.order_no} 到廠自動建立",
         created_by        = current_user.id,
-        shelf_life_days   = 23,            # 預設保質期
+        shelf_life_days   = default_shelf_life,
     )
     db.add(batch)
     db.flush()  # 取得 batch.id
@@ -223,6 +237,7 @@ def confirm_arrival(
     po_out = db.query(PurchaseOrder).options(
         joinedload(PurchaseOrder.supplier),
         joinedload(PurchaseOrder.source_farmer),
+        joinedload(PurchaseOrder.product_type),
     ).filter(PurchaseOrder.id == po_id).first()
 
     return {

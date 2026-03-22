@@ -210,6 +210,14 @@ def run_migrations(engine):
                 ))
             conn.commit()
 
+        # ── 採購單新增品項欄位 ──────────────────────────────────
+        with engine.connect() as conn:
+            conn.execute(text(
+                "ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS "
+                "product_type_id UUID REFERENCES product_types(id) ON DELETE SET NULL"
+            ))
+            conn.commit()
+
     # ── 舊 batch_cost_items 資料遷移 ──────────────────────────────
     if "batch_cost_items" in existing:
         migrate_legacy_cost_items(engine)

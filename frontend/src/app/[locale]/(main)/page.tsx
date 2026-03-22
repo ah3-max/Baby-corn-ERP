@@ -215,9 +215,9 @@ export default function DashboardPage() {
                 <p className="text-xs text-gray-400">{td('boxesAndLots', { boxes: invSummary.total_boxes, lots: invSummary.lot_count })}</p>
               </div>
               <div className="flex gap-2">
-                <AgeChip count={invSummary.age_ok}      color="green"  label="≤30d" />
-                <AgeChip count={invSummary.age_warning} color="yellow" label="31-60d" />
-                <AgeChip count={invSummary.age_alert}   color="red"    label=">60d" urgent={invSummary.age_alert > 0} />
+                <AgeChip count={invSummary.age_ok}      color="green"  label="≤7d" />
+                <AgeChip count={invSummary.age_warning} color="yellow" label="8-14d" />
+                <AgeChip count={invSummary.age_alert}   color="red"    label=">14d" urgent={invSummary.age_alert > 0} />
               </div>
               {pendingReceipt > 0 && (
                 <Link href={`/${locale}/inventory`} className="flex items-center gap-1.5 text-xs text-orange-600 hover:text-orange-700 font-medium">

@@ -10,9 +10,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { X, Calculator } from 'lucide-react';
-import { purchasesApi, suppliersApi } from '@/lib/api';
+import { purchasesApi, suppliersApi, productTypesApi } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';
-import type { PurchaseOrder, Supplier } from '@/types';
+import type { PurchaseOrder, Supplier, ProductType } from '@/types';
 
 interface Props {
   purchase: PurchaseOrder | null;
@@ -31,6 +31,7 @@ export default function PurchaseDrawer({ purchase, onClose }: Props) {
     order_date:        purchase?.order_date       ?? today,
     supplier_id:       purchase?.supplier_id      ?? '',
     source_farmer_id:  purchase?.source_farmer_id ?? '',
+    product_type_id:   purchase?.product_type_id  ?? '',
     estimated_weight:  purchase?.estimated_weight ? String(purchase.estimated_weight) : '',
     unit_price:        purchase?.unit_price        ? String(purchase.unit_price)       : '',
     expected_arrival:  purchase?.expected_arrival
@@ -39,17 +40,19 @@ export default function PurchaseDrawer({ purchase, onClose }: Props) {
     note: purchase?.note ?? '',
   });
 
-  const [suppliers, setSuppliers]   = useState<Supplier[]>([]);
-  const [farmers, setFarmers]       = useState<Supplier[]>([]);
-  const [loading, setLoading]       = useState(false);
-  const [error, setError]           = useState('');
+  const [suppliers, setSuppliers]         = useState<Supplier[]>([]);
+  const [farmers, setFarmers]             = useState<Supplier[]>([]);
+  const [productTypes, setProductTypes]   = useState<ProductType[]>([]);
+  const [loading, setLoading]             = useState(false);
+  const [error, setError]                 = useState('');
 
-  // 載入供應商（農民 + 中盤商）
+  // 載入供應商（農民 + 中盤商）+ 品項列表
   useEffect(() => {
     suppliersApi.list({ is_active: true }).then(({ data }) => {
       setSuppliers(data.filter((s: Supplier) => ['farmer', 'broker'].includes(s.supplier_type)));
       setFarmers(data.filter((s: Supplier) => s.supplier_type === 'farmer'));
     });
+    productTypesApi.list().then(({ data }) => setProductTypes(data));
   }, []);
 
   const set = (key: string, val: string) => setForm((f) => ({ ...f, [key]: val }));
@@ -75,6 +78,7 @@ export default function PurchaseDrawer({ purchase, onClose }: Props) {
         order_date:        form.order_date,
         supplier_id:       form.supplier_id,
         source_farmer_id:  isBroker && form.source_farmer_id ? form.source_farmer_id : null,
+        product_type_id:   form.product_type_id || null,
         estimated_weight:  parseFloat(form.estimated_weight),
         unit_price:        parseFloat(form.unit_price),
         expected_arrival:  form.expected_arrival || null,
@@ -155,6 +159,24 @@ export default function PurchaseDrawer({ purchase, onClose }: Props) {
                     {isBroker ? `🏪 ${t('brokerMode')}` : `🌾 ${t('farmerDirect')}`}
                   </p>
                 )}
+              </div>
+
+              {/* 品項選擇 */}
+              <div className="mb-3">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('productType')}
+                  <span className="ml-1 text-xs text-gray-400">{tc('optional')}</span>
+                </label>
+                <select value={form.product_type_id}
+                  onChange={(e) => set('product_type_id', e.target.value)}
+                  className="input">
+                  <option value="">— {t('selectProductType')} —</option>
+                  {productTypes.map((pt) => (
+                    <option key={pt.id} value={pt.id}>
+                      {pt.name_zh} ({pt.code})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* 農民來源（僅中盤商時顯示） */}

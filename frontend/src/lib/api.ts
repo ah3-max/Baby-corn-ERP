@@ -290,6 +290,31 @@ export const attachmentsApi = {
   delete: (id: string) => apiClient.delete(`/attachments/${id}`),
 };
 
+// ─── 發票 API ────────────────────────────────────────
+
+export const invoicesApi = {
+  list: (params?: { shipment_id?: string; status?: string }) =>
+    apiClient.get('/invoices', { params }),
+  get: (id: string) => apiClient.get(`/invoices/${id}`),
+  create: (data: object) => apiClient.post('/invoices', data),
+  update: (id: string, data: object) => apiClient.put(`/invoices/${id}`, data),
+  updateStatus: (id: string, status: string) =>
+    apiClient.put(`/invoices/${id}/status`, null, { params: { status } }),
+  delete: (id: string) => apiClient.delete(`/invoices/${id}`),
+  getCompanyDefaults: () => apiClient.get('/invoices/company-defaults'),
+  getHtml: (id: string) => apiClient.get(`/invoices/${id}/html`, { responseType: 'text' }),
+};
+
+// ─── 品項 API ────────────────────────────────────────
+
+export const productTypesApi = {
+  list: () => apiClient.get('/product-types'),
+  listAll: () => apiClient.get('/product-types/all'),
+  get: (id: string) => apiClient.get(`/product-types/${id}`),
+  create: (data: object) => apiClient.post('/product-types', data),
+  update: (id: string, data: object) => apiClient.put(`/product-types/${id}`, data),
+};
+
 // ─── 角色 API ────────────────────────────────────────
 
 export const rolesApi = {

@@ -223,25 +223,42 @@ def _lot_to_out(lot: InventoryLot) -> LotOut:
 
 # ─── 倉庫管理 ─────────────────────────────────────────
 
+def _wh_to_out(w: Warehouse) -> WarehouseOut:
+    """倉庫 ORM → WarehouseOut（UUID 轉 str）"""
+    return WarehouseOut(
+        id=str(w.id), name=w.name, address=w.address,
+        notes=w.notes, is_active=w.is_active,
+    )
+
+
+def _loc_to_out(loc: WarehouseLocation) -> LocationOut:
+    """庫位 ORM → LocationOut（UUID 轉 str）"""
+    return LocationOut(
+        id=str(loc.id), warehouse_id=str(loc.warehouse_id),
+        name=loc.name, notes=loc.notes, is_active=loc.is_active,
+    )
+
+
 @router.get("/warehouses", response_model=List[WarehouseOut])
 def list_warehouses(
     db: Session = Depends(get_db),
-    _:  User    = Depends(check_permission("inventory", "view")),
+    _:  User    = Depends(check_permission("stock", "read")),
 ):
-    return db.query(Warehouse).filter(Warehouse.is_active == True).order_by(Warehouse.name).all()
+    rows = db.query(Warehouse).filter(Warehouse.is_active == True).order_by(Warehouse.name).all()
+    return [_wh_to_out(w) for w in rows]
 
 
 @router.post("/warehouses", response_model=WarehouseOut, status_code=201)
 def create_warehouse(
     payload: WarehouseCreate,
     db:      Session = Depends(get_db),
-    _:       User    = Depends(check_permission("inventory", "create")),
+    _:       User    = Depends(check_permission("stock", "create")),
 ):
     w = Warehouse(**payload.model_dump())
     db.add(w)
     db.commit()
     db.refresh(w)
-    return w
+    return _wh_to_out(w)
 
 
 @router.put("/warehouses/{warehouse_id}", response_model=WarehouseOut)
@@ -249,7 +266,7 @@ def update_warehouse(
     warehouse_id: UUID,
     payload:      WarehouseUpdate,
     db:           Session = Depends(get_db),
-    _:            User    = Depends(check_permission("inventory", "edit")),
+    _:            User    = Depends(check_permission("stock", "update")),
 ):
     w = db.query(Warehouse).filter(Warehouse.id == warehouse_id).first()
     if not w:
@@ -258,21 +275,22 @@ def update_warehouse(
         setattr(w, k, v)
     db.commit()
     db.refresh(w)
-    return w
+    return _wh_to_out(w)
 
 
 @router.get("/warehouses/{warehouse_id}/locations", response_model=List[LocationOut])
 def list_locations(
     warehouse_id: UUID,
     db:           Session = Depends(get_db),
-    _:            User    = Depends(check_permission("inventory", "view")),
+    _:            User    = Depends(check_permission("stock", "read")),
 ):
-    return (
+    rows = (
         db.query(WarehouseLocation)
         .filter(WarehouseLocation.warehouse_id == warehouse_id, WarehouseLocation.is_active == True)
         .order_by(WarehouseLocation.name)
         .all()
     )
+    return [_loc_to_out(loc) for loc in rows]
 
 
 @router.post("/warehouses/{warehouse_id}/locations", response_model=LocationOut, status_code=201)
@@ -280,7 +298,7 @@ def create_location(
     warehouse_id: UUID,
     payload:      LocationCreate,
     db:           Session = Depends(get_db),
-    _:            User    = Depends(check_permission("inventory", "create")),
+    _:            User    = Depends(check_permission("stock", "create")),
 ):
     if not db.query(Warehouse).filter(Warehouse.id == warehouse_id).first():
         raise HTTPException(status_code=404, detail="倉庫不存在")
@@ -288,7 +306,7 @@ def create_location(
     db.add(loc)
     db.commit()
     db.refresh(loc)
-    return loc
+    return _loc_to_out(loc)
 
 
 # ─── 庫存批次 ─────────────────────────────────────────
@@ -299,7 +317,7 @@ def list_lots(
     status_filter: Optional[str] = Query(None, alias="status"),
     batch_id:      Optional[UUID] = Query(None),
     db:            Session = Depends(get_db),
-    _:             User    = Depends(check_permission("inventory", "view")),
+    _:             User    = Depends(check_permission("stock", "read")),
 ):
     """FIFO 排序（依入庫日由舊到新）"""
     q = (
@@ -330,7 +348,7 @@ def list_lots(
 def create_lot(
     payload:      LotCreate,
     db:           Session = Depends(get_db),
-    current_user: User    = Depends(check_permission("inventory", "create")),
+    current_user: User    = Depends(check_permission("stock", "create")),
 ):
     """入庫"""
     batch = db.query(Batch).filter(Batch.id == payload.batch_id).first()
@@ -398,7 +416,7 @@ def create_lot(
 def get_lot(
     lot_id: UUID,
     db:     Session = Depends(get_db),
-    _:      User    = Depends(check_permission("inventory", "view")),
+    _:      User    = Depends(check_permission("stock", "read")),
 ):
     lot = (
         db.query(InventoryLot)
@@ -418,7 +436,7 @@ def scrap_lot(
     lot_id:       UUID,
     payload:      ScrapCreate,
     db:           Session = Depends(get_db),
-    current_user: User    = Depends(check_permission("inventory", "edit")),
+    current_user: User    = Depends(check_permission("stock", "update")),
 ):
     """報廢部分或全部庫存"""
     lot = db.query(InventoryLot).filter(InventoryLot.id == lot_id).first()
@@ -455,7 +473,7 @@ def adjust_lot(
     lot_id:       UUID,
     payload:      AdjustCreate,
     db:           Session = Depends(get_db),
-    current_user: User    = Depends(check_permission("inventory", "edit")),
+    current_user: User    = Depends(check_permission("stock", "update")),
 ):
     """手動調整庫存（正數增加、負數減少）"""
     lot = db.query(InventoryLot).filter(InventoryLot.id == lot_id).first()
@@ -499,7 +517,7 @@ def adjust_lot(
 @router.get("/summary")
 def get_summary(
     db: Session = Depends(get_db),
-    _:  User    = Depends(check_permission("inventory", "view")),
+    _:  User    = Depends(check_permission("stock", "read")),
 ):
     """庫存總覽統計"""
     active_lots = (
@@ -513,16 +531,16 @@ def get_summary(
     total_boxes  = sum((l.current_boxes or 0) for l in active_lots)
     lot_count    = len(active_lots)
 
-    # 庫齡分布
-    age_ok      = sum(1 for l in active_lots if (today - l.received_date).days <= 30)
-    age_warning = sum(1 for l in active_lots if 30 < (today - l.received_date).days <= 60)
-    age_alert   = sum(1 for l in active_lots if (today - l.received_date).days > 60)
+    # 庫齡分布（玉米筍保存期限短，以 7/14 天為門檻）
+    age_ok      = sum(1 for l in active_lots if (today - l.received_date).days <= 7)
+    age_warning = sum(1 for l in active_lots if 7 < (today - l.received_date).days <= 14)
+    age_alert   = sum(1 for l in active_lots if (today - l.received_date).days > 14)
 
     return {
         "total_weight_kg": round(total_weight, 2),
         "total_boxes":     total_boxes,
         "lot_count":       lot_count,
-        "age_ok":          age_ok,       # ≤30 天
-        "age_warning":     age_warning,  # 31–60 天
-        "age_alert":       age_alert,    # >60 天
+        "age_ok":          age_ok,       # ≤7 天（新鮮）
+        "age_warning":     age_warning,  # 8–14 天（注意）
+        "age_alert":       age_alert,    # >14 天（危險）
     }
