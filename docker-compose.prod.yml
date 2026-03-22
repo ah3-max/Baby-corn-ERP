@@ -1,0 +1,59 @@
+services:
+  # ─── PostgreSQL 資料庫 ────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: babycorn_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # 正式環境不暴露 port，僅容器內部通訊
+    # 若需從外部連線除錯，取消下面註解
+    # ports:
+    #   - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── FastAPI 後端（Production）──────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: babycorn_backend
+    restart: always
+    env_file:
+      - .env
+    environment:
+      POSTGRES_HOST: db
+    volumes:
+      - uploads_data:/app/uploads
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # ─── Next.js 前端（Production Build）────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    container_name: babycorn_frontend
+    restart: always
+    environment:
+      BACKEND_URL: http://backend:8000
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  uploads_data:

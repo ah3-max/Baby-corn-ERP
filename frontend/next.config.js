@@ -4,6 +4,8 @@ const withNextIntl = createNextIntlPlugin('./src/i18n.ts');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Production standalone 模式（Docker 優化）
+  output: 'standalone',
   // 允許連接後端 API
   async rewrites() {
     // server-side proxy：用 Docker 內部 service name 連後端
