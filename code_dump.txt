@@ -1,0 +1,814 @@
+========== MODELS ==========
+
+
+===== backend/models/__init__.py =====
+# 匯入所有 Model，讓 Alembic 自動偵測
+from models.user import User, Role, Permission, RolePermission, RefreshToken
+from models.supplier import Supplier
+from models.purchase import PurchaseOrder
+from models.batch import Batch
+from models.qc import QCRecord
+from models.shipment import Shipment, ShipmentBatch
+from models.customer import Customer
+from models.sales import SalesOrder, SalesOrderItem
+from models.cost import BatchCostItem
+from models.inventory import Warehouse, WarehouseLocation, InventoryLot, InventoryTransaction
+
+
+===== backend/models/batch.py =====
+"""
+批次資料庫模型
+每個到廠採購單可開立一個或多個批次，批次為系統核心追蹤單位
+狀態流程：processing → qc_pending → qc_done → packaging → ready_to_export
+           → exported → in_transit_tw → in_stock → sold → closed
+"""
+import uuid
+from datetime import datetime
+from sqlalchemy import Column, String, DateTime, Text, ForeignKey, Numeric, Boolean, Integer
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
+
+from database import Base
+
+
+# 批次合法狀態清單（有序，用於狀態推進驗證）
+BATCH_STATUSES = [
+    "processing",       # 工廠加工中
+    "qc_pending",       # 待 QC 檢查
+    "qc_done",          # QC 完成
+    "packaging",        # 包裝中
+    "ready_to_export",  # 備貨完成，等待出口
+    "exported",         # 已出口
+    "in_transit_tw",    # 台灣運輸中
+    "in_stock",         # 台灣庫存中
+    "sold",             # 已售出
+    "closed",           # 結案（終態）
+]
+
+# 每個狀態的下一個合法狀態
+STATUS_NEXT: dict[str, str | None] = {
+    "processing":      "qc_pending",
+    "qc_pending":      "qc_done",
+    "qc_done":         "packaging",
+    "packaging":       "ready_to_export",
+    "ready_to_export": "exported",
+    "exported":        "in_transit_tw",
+    "in_transit_tw":   "in_stock",
+    "in_stock":        "sold",
+    "sold":            "closed",
+    "closed":          None,
+}
+
+
+class Batch(Base):
+    """批次主表 — 供應鏈追蹤核心"""
+    __tablename__ = "batches"
+
+    id                = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    batch_no          = Column(String(30), unique=True, nullable=False)           # 批次編號 BT-YYYYMMDD-XXX
+    purchase_order_id = Column(UUID(as_uuid=True), ForeignKey("purchase_orders.id"), nullable=False)
+
+    # 重量追蹤
+    initial_weight    = Column(Numeric(10, 2), nullable=False)                   # 初始重量（kg，來自採購單的可用重量）
+    current_weight    = Column(Numeric(10, 2), nullable=False)                   # 目前可用重量（加工後可能減少）
+
+    # 狀態
+    status            = Column(String(30), nullable=False, default="processing") # 批次目前狀態
+
+    note              = Column(Text, nullable=True)                              # 備註
+
+    # ── 生鮮時效追蹤 ──────────────────────────────────────────────────
+    # 田間採摘
+    harvest_datetime        = Column(DateTime, nullable=True)           # 採摘時間（時效起點）
+    harvest_location        = Column(String(200), nullable=True)        # 採摘地點（農場 / 地區）
+    harvest_temperature     = Column(Numeric(4, 1), nullable=True)      # 採摘時溫度 °C
+    harvest_weather         = Column(String(50), nullable=True)         # sunny/cloudy/rainy/storm/hot
+    transport_refrigerated  = Column(Boolean, nullable=True)            # 採摘→工廠 是否冷藏運輸
+
+    # 工廠里程碑
+    factory_arrival_dt      = Column(DateTime, nullable=True)           # 抵達工廠時間
+    factory_temp_on_arrival = Column(Numeric(4, 1), nullable=True)      # 到廠時品溫 °C
+    factory_complete_dt     = Column(DateTime, nullable=True)           # 加工完成時間
+    cold_storage_temp       = Column(Numeric(4, 1), nullable=True)      # 冷藏庫設定溫度 °C
+
+    # 包裝 / 出口
+    packed_dt               = Column(DateTime, nullable=True)           # 包裝完成時間
+    container_loaded_dt     = Column(DateTime, nullable=True)           # 裝貨（容器）時間
+
+    # 有效期設定
+    shelf_life_days         = Column(Integer, nullable=True)            # 有效天數（預設 23）
+
+    created_by        = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at        = Column(DateTime, default=datetime.utcnow)
+    updated_at        = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # 關聯
+    purchase_order = relationship("PurchaseOrder", foreign_keys=[purchase_order_id])
+    creator        = relationship("User", foreign_keys=[created_by])
+
+
+===== backend/models/cost.py =====
+"""
+批次成本項目模型
+每個批次可以附加多筆成本項目（運費、關稅、加工費、包材費等）
+用於計算落地成本與批次毛利
+"""
+import uuid
+from datetime import datetime
+from sqlalchemy import Column, String, DateTime, Text, ForeignKey, Numeric
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
+
+from database import Base
+
+
+# 成本項目分類（預設分類）
+COST_CATEGORIES = [
+    "freight",    # 運費
+    "customs",    # 關稅/報關費
+    "processing", # 加工費
+    "packaging",  # 包材費
+    "storage",    # 倉儲費
+    "other",      # 其他
+]
+
+
+class BatchCostItem(Base):
+    """批次成本項目
+
+    每筆成本項目可以選擇幣別（THB 或 TWD），
+    分析時統一轉換為 TWD（需設定匯率）
+    """
+    __tablename__ = "batch_cost_items"
+
+    id         = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    batch_id   = Column(UUID(as_uuid=True), ForeignKey("batches.id"), nullable=False)
+    category   = Column(String(30), nullable=False, default="other")  # freight/customs/processing/packaging/storage/other
+    name       = Column(String(100), nullable=False)                  # 項目名稱（自訂）
+    amount     = Column(Numeric(12, 2), nullable=False)               # 金額
+    currency   = Column(String(3), nullable=False, default="TWD")     # THB / TWD
+    note       = Column(Text, nullable=True)                          # 備註
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # 關聯
+    batch   = relationship("Batch", foreign_keys=[batch_id])
+    creator = relationship("User", foreign_keys=[created_by])
+
+
+===== backend/models/customer.py =====
+"""
+台灣客戶模型
+"""
+import uuid
+from datetime import datetime
+from sqlalchemy import Column, String, DateTime, Text, Boolean
+from sqlalchemy.dialects.postgresql import UUID
+
+from database import Base
+
+
+class Customer(Base):
+    """台灣銷售客戶"""
+    __tablename__ = "customers"
+
+    id            = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name          = Column(String(200), nullable=False)
+    contact_name  = Column(String(100), nullable=True)
+    phone         = Column(String(50), nullable=True)
+    email         = Column(String(200), nullable=True)
+    region        = Column(String(100), nullable=True)                # 地區（縣市）
+    address       = Column(Text, nullable=True)
+    payment_terms = Column(String(200), nullable=True)                # 付款條件
+    note          = Column(Text, nullable=True)
+    is_active     = Column(Boolean, default=True, nullable=False)
+    created_at    = Column(DateTime, default=datetime.utcnow)
+    updated_at    = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+===== backend/models/inventory.py =====
+"""
+台灣庫存管理模型
+Warehouse       - 倉庫
+WarehouseLocation - 庫位
+InventoryLot    - 庫存批次（每次入庫一筆）
+InventoryTransaction - 庫存異動記錄
+"""
+import uuid
+from datetime import datetime, date
+from sqlalchemy import (
+    Column, String, Text, ForeignKey, Numeric,
+    Integer, DateTime, Date, Boolean
+)
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
+
+from database import Base
+
+
+class Warehouse(Base):
+    """倉庫"""
+    __tablename__ = "warehouses"
+
+    id         = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name       = Column(String(100), nullable=False)
+    address    = Column(Text, nullable=True)
+    notes      = Column(Text, nullable=True)
+    is_active  = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    locations = relationship("WarehouseLocation", back_populates="warehouse", cascade="all, delete-orphan")
+    lots      = relationship("InventoryLot", back_populates="warehouse")
+
+
+class WarehouseLocation(Base):
+    """庫位（倉庫內的具體位置）"""
+    __tablename__ = "warehouse_locations"
+
+    id           = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    warehouse_id = Column(UUID(as_uuid=True), ForeignKey("warehouses.id"), nullable=False)
+    name         = Column(String(50), nullable=False)   # 例：A01、冷凍庫-1
+    notes        = Column(Text, nullable=True)
+    is_active    = Column(Boolean, default=True, nullable=False)
+    created_at   = Column(DateTime, default=datetime.utcnow)
+
+    warehouse = relationship("Warehouse", back_populates="locations")
+    lots      = relationship("InventoryLot", back_populates="location")
+
+
+class InventoryLot(Base):
+    """
+    庫存批次
+    每次入庫對應一個 Lot，可追蹤 FIFO、庫齡、規格
+    """
+    __tablename__ = "inventory_lots"
+
+    id                 = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    lot_no             = Column(String(30), unique=True, nullable=False)     # LOT-20240101-001
+    batch_id           = Column(UUID(as_uuid=True), ForeignKey("batches.id"), nullable=False)
+    warehouse_id       = Column(UUID(as_uuid=True), ForeignKey("warehouses.id"), nullable=False)
+    location_id        = Column(UUID(as_uuid=True), ForeignKey("warehouse_locations.id"), nullable=True)
+
+    spec               = Column(String(50), nullable=True)    # 規格：A級/B級/冷藏/冷凍
+    received_date      = Column(Date, nullable=False)         # 入庫日（FIFO 依此排序）
+
+    initial_weight_kg  = Column(Numeric(10, 2), nullable=False)
+    initial_boxes      = Column(Integer, nullable=True)
+
+    current_weight_kg  = Column(Numeric(10, 2), nullable=False)
+    current_boxes      = Column(Integer, nullable=True)
+
+    shipped_weight_kg  = Column(Numeric(10, 2), default=0, nullable=False)
+    shipped_boxes      = Column(Integer, default=0, nullable=True)
+
+    scrapped_weight_kg = Column(Numeric(10, 2), default=0, nullable=False)
+
+    # active / depleted / scrapped
+    status             = Column(String(20), default="active", nullable=False)
+
+    notes              = Column(Text, nullable=True)
+    # ── Module K: 台灣進口入庫資訊 ────────────────────────────────────
+    import_type            = Column(String(10), nullable=True)     # air / sea
+    customs_declaration_no = Column(String(100), nullable=True)    # 報關號碼
+    customs_clearance_date = Column(Date, nullable=True)           # 通關日期
+    inspection_result      = Column(String(20), nullable=True)     # pass/fail/pending/exempted
+    received_by            = Column(String(100), nullable=True)    # 入庫人員
+    shipment_id            = Column(UUID(as_uuid=True), ForeignKey("shipments.id"), nullable=True)
+    created_by         = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at         = Column(DateTime, default=datetime.utcnow)
+    updated_at         = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    batch     = relationship("Batch",             foreign_keys=[batch_id])
+    warehouse = relationship("Warehouse",         back_populates="lots")
+    location  = relationship("WarehouseLocation", back_populates="lots")
+    creator   = relationship("User",              foreign_keys=[created_by])
+    transactions = relationship("InventoryTransaction", back_populates="lot",
+                                order_by="InventoryTransaction.created_at")
+
+
+class InventoryTransaction(Base):
+    """
+    庫存異動記錄
+    type: in（入庫）/ out（出庫）/ scrap（報廢）/ adjust（調整）
+    """
+    __tablename__ = "inventory_transactions"
+
+    id           = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    lot_id       = Column(UUID(as_uuid=True), ForeignKey("inventory_lots.id"), nullable=False)
+    txn_type     = Column(String(10), nullable=False)   # in / out / scrap / adjust
+    weight_kg    = Column(Numeric(10, 2), nullable=False)
+    boxes        = Column(Integer, nullable=True)
+    reference    = Column(String(100), nullable=True)   # 銷售單號、出貨單號等
+    reason       = Column(Text, nullable=True)
+    created_by   = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at   = Column(DateTime, default=datetime.utcnow)
+
+    lot     = relationship("InventoryLot", back_populates="transactions")
+    creator = relationship("User", foreign_keys=[created_by])
+
+
+===== backend/models/purchase.py =====
+"""
+採購單資料庫模型
+支援兩種模式：農民直購 / 中盤商採購
+"""
+import uuid
+from datetime import datetime, date
+from sqlalchemy import Column, String, Boolean, DateTime, Date, Text, ForeignKey, Numeric
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
+
+from database import Base
+
+
+class PurchaseOrder(Base):
+    """採購單主表"""
+    __tablename__ = "purchase_orders"
+
+    id                = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    order_no          = Column(String(30), unique=True, nullable=False)          # 採購編號 PO-YYYYMMDD-XXX
+    order_date        = Column(Date, nullable=False, default=date.today)         # 採購日期
+    supplier_id       = Column(UUID(as_uuid=True), ForeignKey("suppliers.id"), nullable=False)   # 採購來源（農民/中盤商）
+    source_farmer_id  = Column(UUID(as_uuid=True), ForeignKey("suppliers.id"), nullable=True)    # 中盤商時的原始農民來源
+
+    # 重量與價格
+    estimated_weight  = Column(Numeric(10, 2), nullable=False)                   # 預計重量（kg）
+    unit_price        = Column(Numeric(10, 2), nullable=False)                   # 單價（THB/kg）
+    total_amount      = Column(Numeric(12, 2), nullable=False)                   # 總金額（THB）
+
+    # 時間
+    expected_arrival  = Column(DateTime, nullable=True)                          # 預計到廠時間
+
+    # 狀態：draft / confirmed / in_transit / arrived / closed
+    status            = Column(String(20), nullable=False, default="draft")
+
+    # 到廠資訊（arrived 後填入）
+    arrived_at        = Column(DateTime, nullable=True)                          # 實際到廠時間
+    received_weight   = Column(Numeric(10, 2), nullable=True)                   # 收貨重量（kg）
+    defect_weight     = Column(Numeric(10, 2), nullable=True)                   # 不良重量（kg）
+    usable_weight     = Column(Numeric(10, 2), nullable=True)                   # 可用重量（kg）
+    defect_rate       = Column(Numeric(5, 2), nullable=True)                    # 不良率（%）
+    arrival_note      = Column(Text, nullable=True)                             # 到廠備註
+
+    note              = Column(Text, nullable=True)                             # 採購備註
+    created_by        = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at        = Column(DateTime, default=datetime.utcnow)
+    updated_at        = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # 關聯
+    supplier       = relationship("Supplier", foreign_keys=[supplier_id])
+    source_farmer  = relationship("Supplier", foreign_keys=[source_farmer_id])
+    creator        = relationship("User", foreign_keys=[created_by])
+
+
+===== backend/models/qc.py =====
+"""
+QC 檢驗記錄模型
+每個批次可有多筆 QC 記錄，記錄品管檢驗歷程
+"""
+import uuid
+from datetime import datetime
+from sqlalchemy import Column, String, DateTime, Text, ForeignKey, Numeric
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
+
+from database import Base
+
+QC_RESULTS = ["pass", "fail", "conditional_pass"]
+QC_GRADES  = ["A", "B", "C", "D"]
+
+
+class QCRecord(Base):
+    """QC 檢驗記錄"""
+    __tablename__ = "qc_records"
+
+    id             = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    batch_id       = Column(UUID(as_uuid=True), ForeignKey("batches.id"), nullable=False)
+    inspector_name = Column(String(100), nullable=False)                       # 檢驗人員
+    checked_at     = Column(DateTime, nullable=False, default=datetime.utcnow) # 檢驗時間
+    result         = Column(String(20), nullable=False)                        # pass/fail/conditional_pass
+    grade          = Column(String(5), nullable=True)                          # A/B/C/D
+    weight_checked = Column(Numeric(10, 2), nullable=True)                    # 抽查重量（kg）
+    notes          = Column(Text, nullable=True)                              # 備註
+    created_by     = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at     = Column(DateTime, default=datetime.utcnow)
+    updated_at     = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    batch   = relationship("Batch",  foreign_keys=[batch_id])
+    creator = relationship("User",   foreign_keys=[created_by])
+
+
+===== backend/models/sales.py =====
+"""
+銷售訂單模型
+一個銷售訂單可包含多個批次的銷售品項
+"""
+import uuid
+from datetime import datetime, date
+from decimal import Decimal
+from sqlalchemy import Column, String, DateTime, Date, Text, ForeignKey, Numeric
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
+
+from database import Base
+
+SALES_STATUSES = ["draft", "confirmed", "delivered", "invoiced", "closed"]
+
+
+class SalesOrder(Base):
+    """銷售訂單主表"""
+    __tablename__ = "sales_orders"
+
+    id               = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    order_no         = Column(String(30), unique=True, nullable=False)           # 銷售單號 SO-YYYYMMDD-XXX
+    customer_id      = Column(UUID(as_uuid=True), ForeignKey("customers.id"), nullable=False)
+    order_date       = Column(Date, nullable=False, default=date.today)
+    delivery_date    = Column(Date, nullable=True)                              # 預計交貨日期
+    total_amount_twd = Column(Numeric(14, 2), nullable=False, default=Decimal("0"))  # 總金額（TWD）
+    status           = Column(String(20), nullable=False, default="draft")
+    note             = Column(Text, nullable=True)
+    created_by       = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at       = Column(DateTime, default=datetime.utcnow)
+    updated_at       = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    customer = relationship("Customer", foreign_keys=[customer_id])
+    items    = relationship("SalesOrderItem", back_populates="sales_order", cascade="all, delete-orphan")
+    creator  = relationship("User", foreign_keys=[created_by])
+
+
+class SalesOrderItem(Base):
+    """銷售訂單品項（關聯批次）"""
+    __tablename__ = "sales_order_items"
+
+    id               = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    sales_order_id   = Column(UUID(as_uuid=True), ForeignKey("sales_orders.id"), nullable=False)
+    batch_id         = Column(UUID(as_uuid=True), ForeignKey("batches.id"), nullable=False)
+    quantity_kg      = Column(Numeric(10, 2), nullable=False)                  # 數量（kg）
+    unit_price_twd   = Column(Numeric(10, 2), nullable=False)                  # 單價（TWD/kg）
+    total_amount_twd = Column(Numeric(12, 2), nullable=False)                  # 小計（TWD）
+    note             = Column(Text, nullable=True)
+
+    sales_order = relationship("SalesOrder", back_populates="items")
+    batch       = relationship("Batch")
+
+
+===== backend/models/shipment.py =====
+"""
+出口物流模型
+一個出口單可關聯多個批次，追蹤從泰國到台灣的物流流程
+"""
+import uuid
+from datetime import datetime, date
+from sqlalchemy import Column, String, DateTime, Date, Text, ForeignKey, Numeric, Integer
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
+
+from database import Base
+
+SHIPMENT_STATUSES = [
+    "preparing",   # 備貨中
+    "customs_th",  # 泰國報關
+    "in_transit",  # 海運中
+    "customs_tw",  # 台灣報關
+    "arrived_tw",  # 已抵台（終態）
+]
+
+SHIPMENT_STATUS_NEXT: dict[str, str | None] = {
+    "preparing":  "customs_th",
+    "customs_th": "in_transit",
+    "in_transit": "customs_tw",
+    "customs_tw": "arrived_tw",
+    "arrived_tw": None,
+}
+
+
+class Shipment(Base):
+    """出口單主表"""
+    __tablename__ = "shipments"
+
+    id                   = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    shipment_no          = Column(String(30), unique=True, nullable=False)          # 出口編號 SH-YYYYMMDD-XXX
+    export_date          = Column(Date, nullable=False, default=date.today)         # 出口日期
+    carrier              = Column(String(100), nullable=True)                       # 承運商
+    vessel_name          = Column(String(100), nullable=True)                       # 船名/航班
+    bl_no                = Column(String(100), nullable=True)                       # 提單號
+    estimated_arrival_tw = Column(Date, nullable=True)                             # 預計抵台
+    actual_arrival_tw    = Column(Date, nullable=True)                             # 實際抵台
+    status               = Column(String(20), nullable=False, default="preparing")
+    total_weight         = Column(Numeric(10, 2), nullable=True)                   # 總重量（自動彙整）
+    freight_cost         = Column(Numeric(12, 2), nullable=True)                   # 運費（THB）
+    customs_cost         = Column(Numeric(12, 2), nullable=True)                   # 關稅（TWD）
+    notes                = Column(Text, nullable=True)
+    # ── Module J: 出口出貨詳細資訊 ─────────────────────────────────────
+    transport_mode      = Column(String(10), nullable=True)     # air / sea
+    shipped_boxes       = Column(Integer, nullable=True)         # 裝箱數
+    shipper_name        = Column(String(100), nullable=True)     # 出貨人
+    export_customs_no   = Column(String(100), nullable=True)     # 出口報關號碼
+    phyto_cert_no       = Column(String(100), nullable=True)     # 植檢證號碼
+    phyto_cert_date     = Column(Date, nullable=True)            # 植檢日期
+    actual_departure_dt = Column(DateTime, nullable=True)        # 實際出發時間
+    created_by           = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at           = Column(DateTime, default=datetime.utcnow)
+    updated_at           = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    shipment_batches = relationship("ShipmentBatch", back_populates="shipment", cascade="all, delete-orphan")
+    creator          = relationship("User", foreign_keys=[created_by])
+
+
+class ShipmentBatch(Base):
+    """出口單 ↔ 批次 多對多中間表"""
+    __tablename__ = "shipment_batches"
+
+    shipment_id = Column(UUID(as_uuid=True), ForeignKey("shipments.id"), primary_key=True)
+    batch_id    = Column(UUID(as_uuid=True), ForeignKey("batches.id"),    primary_key=True)
+
+    shipment = relationship("Shipment", back_populates="shipment_batches")
+    batch    = relationship("Batch")
+
+
+===== backend/models/supplier.py =====
+"""
+供應商資料庫模型
+類型：農民 / 中盤商 / 工廠 / 物流商 / 報關行 / 包材供應商
+"""
+import uuid
+from datetime import datetime
+from sqlalchemy import Column, String, Boolean, DateTime, Text, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
+
+from database import Base
+
+
+class Supplier(Base):
+    """供應商主表"""
+    __tablename__ = "suppliers"
+
+    id              = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name            = Column(String(100), nullable=False)           # 供應商名稱
+    supplier_type   = Column(String(20), nullable=False)            # farmer / broker / factory / logistics / customs / packaging
+    contact_name    = Column(String(100), nullable=True)            # 聯絡人
+    phone           = Column(String(30), nullable=True)             # 電話
+    region          = Column(String(100), nullable=True)            # 地區 / 省份
+    address         = Column(Text, nullable=True)                   # 地址
+    payment_terms   = Column(String(100), nullable=True)            # 付款條件
+    bank_account    = Column(String(200), nullable=True)            # 銀行帳戶
+    note            = Column(Text, nullable=True)                   # 備註
+    is_active       = Column(Boolean, default=True, nullable=False) # 啟用狀態
+    created_by      = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at      = Column(DateTime, default=datetime.utcnow)
+    updated_at      = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # 關聯
+    creator = relationship("User", foreign_keys=[created_by])
+
+
+===== backend/models/user.py =====
+"""
+使用者與權限相關資料庫模型
+包含：User、Role、Permission、RolePermission、RefreshToken
+"""
+import uuid
+from datetime import datetime
+from sqlalchemy import (
+    Column, String, Boolean, DateTime, Text,
+    ForeignKey, UniqueConstraint
+)
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
+
+from database import Base
+
+
+class Role(Base):
+    """角色表"""
+    __tablename__ = "roles"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String(50), unique=True, nullable=False)          # 角色名稱
+    description = Column(Text, nullable=True)                        # 說明
+    is_system = Column(Boolean, default=False, nullable=False)       # 是否為系統預設（不可刪）
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # 關聯
+    users = relationship("User", back_populates="role")
+    role_permissions = relationship("RolePermission", back_populates="role", cascade="all, delete-orphan")
+
+
+class Permission(Base):
+    """權限項目表"""
+    __tablename__ = "permissions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    module = Column(String(50), nullable=False)    # 模組代碼（supplier, batch, sales...）
+    action = Column(String(30), nullable=False)    # 動作（view, create, edit, delete, export, view_cost, view_profit）
+
+    __table_args__ = (
+        UniqueConstraint("module", "action", name="uq_permission_module_action"),
+    )
+
+    # 關聯
+    role_permissions = relationship("RolePermission", back_populates="permission")
+
+
+class RolePermission(Base):
+    """角色-權限對應表"""
+    __tablename__ = "role_permissions"
+
+    role_id = Column(UUID(as_uuid=True), ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True)
+    permission_id = Column(UUID(as_uuid=True), ForeignKey("permissions.id", ondelete="CASCADE"), primary_key=True)
+
+    # 關聯
+    role = relationship("Role", back_populates="role_permissions")
+    permission = relationship("Permission", back_populates="role_permissions")
+
+
+class User(Base):
+    """使用者表"""
+    __tablename__ = "users"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email = Column(String(255), unique=True, nullable=False)          # 電子信箱（登入帳號）
+    password_hash = Column(String(255), nullable=False)               # bcrypt 雜湊密碼
+    full_name = Column(String(100), nullable=False)                   # 姓名
+    role_id = Column(UUID(as_uuid=True), ForeignKey("roles.id"), nullable=True)  # 所屬角色
+    preferred_language = Column(String(5), default="zh-TW")          # 偏好語言：zh-TW / en / th
+    is_active = Column(Boolean, default=True, nullable=False)         # 是否啟用
+    note = Column(Text, nullable=True)                                # 備註
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # 關聯
+    role = relationship("Role", back_populates="users")
+    refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
+
+
+class RefreshToken(Base):
+    """Refresh Token 表"""
+    __tablename__ = "refresh_tokens"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    token = Column(String(500), unique=True, nullable=False)   # Refresh Token 值
+    expires_at = Column(DateTime, nullable=False)              # 過期時間
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # 關聯
+    user = relationship("User", back_populates="refresh_tokens")
+
+
+========== MIGRATIONS ==========
+"""
+Schema migrations — ADD COLUMN IF NOT EXISTS (safe to run multiple times)
+"""
+from sqlalchemy import text
+
+
+def run_migrations(engine):
+    """Add new columns to existing tables without destroying data."""
+    with engine.connect() as conn:
+        # ── Batch freshness tracking ──────────────────────────────────
+        batch_cols = [
+            ("harvest_datetime",        "TIMESTAMP"),
+            ("harvest_location",        "VARCHAR(200)"),
+            ("harvest_temperature",     "NUMERIC(4,1)"),
+            ("harvest_weather",         "VARCHAR(50)"),
+            ("transport_refrigerated",  "BOOLEAN"),
+            ("factory_arrival_dt",      "TIMESTAMP"),
+            ("factory_temp_on_arrival", "NUMERIC(4,1)"),
+            ("factory_complete_dt",     "TIMESTAMP"),
+            ("cold_storage_temp",       "NUMERIC(4,1)"),
+            ("packed_dt",               "TIMESTAMP"),
+            ("container_loaded_dt",     "TIMESTAMP"),
+            ("shelf_life_days",         "INTEGER DEFAULT 23"),
+        ]
+        for col, typ in batch_cols:
+            conn.execute(text(
+                f"ALTER TABLE batches ADD COLUMN IF NOT EXISTS {col} {typ}"
+            ))
+        conn.commit()
+
+        # ── Shipment Module J fields ──────────────────────────────────
+        shipment_cols = [
+            ("transport_mode",     "VARCHAR(10)"),     # air / sea
+            ("shipped_boxes",      "INTEGER"),          # 箱數
+            ("shipper_name",       "VARCHAR(100)"),     # 出貨人
+            ("export_customs_no",  "VARCHAR(100)"),     # 出口報關號碼
+            ("phyto_cert_no",      "VARCHAR(100)"),     # 植檢證號碼
+            ("phyto_cert_date",    "DATE"),             # 植檢日期
+            ("actual_departure_dt","TIMESTAMP"),        # 實際出發時間
+        ]
+        for col, typ in shipment_cols:
+            conn.execute(text(
+                f"ALTER TABLE shipments ADD COLUMN IF NOT EXISTS {col} {typ}"
+            ))
+
+        # ── InventoryLot Module K fields ─────────────────────────────────
+        lot_cols = [
+            ("import_type",             "VARCHAR(10)"),    # air / sea
+            ("customs_declaration_no",  "VARCHAR(100)"),   # 報關號碼
+            ("customs_clearance_date",  "DATE"),           # 通關日期
+            ("inspection_result",       "VARCHAR(20)"),    # pass/fail/pending/exempted
+            ("received_by",             "VARCHAR(100)"),   # 入庫人員
+            ("shipment_id",             "UUID REFERENCES shipments(id) ON DELETE SET NULL"),
+        ]
+        for col, typ in lot_cols:
+            conn.execute(text(
+                f"ALTER TABLE inventory_lots ADD COLUMN IF NOT EXISTS {col} {typ}"
+            ))
+        conn.commit()
+
+
+===== backend/database.py =====
+"""
+資料庫連線設定
+使用 SQLAlchemy 非同步連線
+"""
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+
+from config import settings
+
+# 建立同步引擎
+engine = create_engine(settings.DATABASE_URL)
+
+# 建立 Session 工廠
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# 所有 Model 的基底類別
+Base = declarative_base()
+
+
+def get_db():
+    """
+    FastAPI 依賴注入用的資料庫 Session 生成器
+    每個請求結束後自動關閉連線
+    """
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+===== backend/main.py =====
+"""
+FastAPI 應用程式入口
+"""
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from routers import auth, users, roles, suppliers, purchases, batches, qc, shipments, customers, sales, analytics, costs, inventory
+from database import Base, engine
+from migrations import run_migrations
+import models  # noqa: F401 – 確保所有 Model 都已載入，Base.metadata 才完整
+
+app = FastAPI(
+    title="玉米筍跨境供應鏈 ERP",
+    description="Baby Corn Cross-Border Supply Chain ERP System",
+    version="1.0.0",
+)
+
+
+@app.on_event("startup")
+def on_startup():
+    """建立尚未存在的資料表，並執行 schema 遷移（新增欄位）"""
+    Base.metadata.create_all(bind=engine, checkfirst=True)
+    run_migrations(engine)
+
+# ─── CORS 設定 ────────────────────────────────────────
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ─── 路由註冊 ─────────────────────────────────────────
+app.include_router(auth.router,      prefix="/api/v1")
+app.include_router(users.router,     prefix="/api/v1")
+app.include_router(roles.router,     prefix="/api/v1")
+app.include_router(suppliers.router, prefix="/api/v1")
+app.include_router(purchases.router, prefix="/api/v1")
+app.include_router(batches.router,   prefix="/api/v1")
+app.include_router(qc.router,        prefix="/api/v1")
+app.include_router(shipments.router, prefix="/api/v1")
+app.include_router(customers.router, prefix="/api/v1")
+app.include_router(sales.router,     prefix="/api/v1")
+app.include_router(analytics.router, prefix="/api/v1")
+app.include_router(costs.router,     prefix="/api/v1")
+app.include_router(inventory.router, prefix="/api/v1")
+
+
+@app.get("/")
+def root():
+    return {"message": "Baby Corn ERP API is running", "version": "1.0.0"}
+
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
