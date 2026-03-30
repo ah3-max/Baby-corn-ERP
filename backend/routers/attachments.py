@@ -12,6 +12,7 @@ from uuid import UUID, uuid4
 from pathlib import Path
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File, Form
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, joinedload
 
 from config import settings
@@ -34,6 +35,7 @@ router = APIRouter(prefix="/attachments", tags=["附件"])
 def list_attachments(
     entity_type: str  = Query(...),
     entity_id:   UUID = Query(...),
+    limit:       int  = Query(50, le=200),
     db: Session = Depends(get_db),
     _:  User    = Depends(check_permission("attachment", "read")),
 ):
@@ -43,6 +45,7 @@ def list_attachments(
         .options(joinedload(Attachment.tags))
         .filter(Attachment.entity_type == entity_type, Attachment.entity_id == entity_id)
         .order_by(Attachment.created_at.desc())
+        .limit(limit)
         .all()
     )
 
@@ -159,6 +162,28 @@ def create_attachment(
         .options(joinedload(Attachment.tags))
         .filter(Attachment.id == att.id)
         .first()
+    )
+
+
+@router.get("/{attachment_id}/download")
+def download_attachment(
+    attachment_id: UUID,
+    db: Session = Depends(get_db),
+    _:  User    = Depends(check_permission("attachment", "read")),
+):
+    """安全下載附件（需登入）。取代原本的公開 /uploads 靜態路由。"""
+    att = db.query(Attachment).filter(Attachment.id == attachment_id).first()
+    if not att:
+        raise HTTPException(status_code=404, detail="附件不存在")
+
+    file_path = Path(settings.UPLOAD_DIR) / att.storage_path
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="檔案不存在於伺服器")
+
+    return FileResponse(
+        path=str(file_path),
+        media_type=att.mime_type or "application/octet-stream",
+        filename=att.file_name,
     )
 
 

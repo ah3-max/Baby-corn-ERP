@@ -60,6 +60,8 @@ def list_factory_batches(
 @router.get("/qc", response_model=List[QCRecordOut])
 def list_qc_records(
     batch_id: Optional[UUID] = Query(None),
+    skip:     int = 0,
+    limit:    int = Query(100, le=500),
     db:       Session = Depends(get_db),
     _:        User = Depends(check_permission("qc", "view")),
 ):
@@ -67,7 +69,7 @@ def list_qc_records(
     q = db.query(QCRecord)
     if batch_id:
         q = q.filter(QCRecord.batch_id == batch_id)
-    return q.order_by(QCRecord.checked_at.desc()).all()
+    return q.order_by(QCRecord.checked_at.desc()).offset(skip).limit(limit).all()
 
 
 @router.post("/qc", response_model=QCRecordOut, status_code=status.HTTP_201_CREATED)
@@ -97,8 +99,8 @@ def create_qc_record(
     )
     db.add(record)
 
-    # QC 通過時自動將批次從 qc_pending 推進至 qc_done
-    if payload.result == "pass" and batch.status == "qc_pending":
+    # QC 通過（含有條件通過）時自動將批次從 qc_pending 推進至 qc_done
+    if payload.result in ("pass", "conditional_pass") and batch.status == "qc_pending":
         batch.status = "qc_done"
 
     db.commit()

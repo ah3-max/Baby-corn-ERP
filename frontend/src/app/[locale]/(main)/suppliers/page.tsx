@@ -5,7 +5,7 @@
  */
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Plus, Pencil, UserX, UserCheck, Search, Phone, MapPin } from 'lucide-react';
+import { Plus, Pencil, Search, Phone, MapPin } from 'lucide-react';
 import { suppliersApi } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';
 import { useUser } from '@/contexts/UserContext';
@@ -63,14 +63,18 @@ export default function SuppliersPage() {
     fetchSuppliers();
   };
 
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+
   const handleToggleActive = async (s: Supplier) => {
-    if (s.is_active && !confirm(t('confirmDeactivate'))) return;
+    setTogglingId(s.id);
     try {
       await suppliersApi.update(s.id, { is_active: !s.is_active });
-      showToast(s.is_active ? t('deactivateSuccess') : t('activateSuccess'), 'success');
+      showToast(s.is_active ? '供應商已關閉（不活躍）' : '供應商已開啟（活躍）', 'success');
       fetchSuppliers();
     } catch {
       showToast(tc('error'), 'error');
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -147,33 +151,30 @@ export default function SuppliersPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {suppliers.map((s) => (
-            <div key={s.id} className="card p-4 hover:shadow-md transition-shadow">
+            <div
+              key={s.id}
+              className={`card p-4 hover:shadow-md transition-all ${
+                !s.is_active ? 'opacity-50 bg-gray-50' : ''
+              }`}
+            >
               {/* 卡片頭 */}
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-gray-800 truncate">{s.name}</h3>
+                  <h3 className={`font-semibold truncate ${s.is_active ? 'text-gray-800' : 'text-gray-400'}`}>
+                    {s.name}
+                  </h3>
                   <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_COLORS[s.supplier_type]}`}>
                     {t(`types.${s.supplier_type}` as any)}
                   </span>
                 </div>
                 {canEdit && (
-                  <div className="flex gap-1 ml-2 flex-shrink-0">
-                    <button
-                      onClick={() => { setEditing(s); setDrawerOpen(true); }}
-                      className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded transition-colors"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      onClick={() => handleToggleActive(s)}
-                      className={`p-1.5 rounded transition-colors ${s.is_active
-                        ? 'text-gray-400 hover:text-red-500 hover:bg-red-50'
-                        : 'text-gray-400 hover:text-green-600 hover:bg-green-50'
-                      }`}
-                    >
-                      {s.is_active ? <UserX size={14} /> : <UserCheck size={14} />}
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => { setEditing(s); setDrawerOpen(true); }}
+                    className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded transition-colors ml-2 flex-shrink-0"
+                    title="編輯"
+                  >
+                    <Pencil size={14} />
+                  </button>
                 )}
               </div>
 
@@ -205,10 +206,31 @@ export default function SuppliersPage() {
                 )}
               </div>
 
-              {/* 停用標示 */}
-              {!s.is_active && (
+              {/* 活躍/不活躍 Toggle 開關 */}
+              {canEdit && (
+                <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
+                  <span className={`text-xs font-medium ${s.is_active ? 'text-green-600' : 'text-gray-400'}`}>
+                    {s.is_active ? '活躍' : '不活躍'}
+                  </span>
+                  <button
+                    onClick={() => handleToggleActive(s)}
+                    disabled={togglingId === s.id}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 ${
+                      s.is_active ? 'bg-green-500' : 'bg-gray-300'
+                    } ${togglingId === s.id ? 'opacity-50 cursor-wait' : 'cursor-pointer'}`}
+                    title={s.is_active ? '點擊關閉（設為不活躍）' : '點擊開啟（設為活躍）'}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                        s.is_active ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+              )}
+              {!canEdit && !s.is_active && (
                 <div className="mt-3 pt-3 border-t border-gray-100">
-                  <span className="badge-inactive">{tc('inactive')}</span>
+                  <span className="text-xs text-gray-400 font-medium">不活躍</span>
                 </div>
               )}
             </div>

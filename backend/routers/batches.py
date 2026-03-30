@@ -23,12 +23,15 @@ from models.qc import QCRecord
 from models.shipment import ShipmentBatch
 from schemas.batch import BatchCreate, BatchUpdate, BatchOut
 from utils.dependencies import get_current_user, check_permission
+from utils.audit import write_audit_log
 
 router = APIRouter(prefix="/batches", tags=["批次管理"])
 
 
 def _generate_batch_no(db: Session) -> str:
     """產生批次編號：BT-YYYYMMDD-XXX"""
+    from sqlalchemy import text
+    db.execute(text("SELECT pg_advisory_xact_lock(hashtext('batch_no'))"))
     date_str = datetime.utcnow().strftime("%Y%m%d")
     prefix   = f"BT-{date_str}-"
     count    = db.query(func.count(Batch.id)).filter(
@@ -134,8 +137,13 @@ def update_batch(
     batch = db.query(Batch).filter(Batch.id == batch_id).first()
     if not batch:
         raise HTTPException(status_code=404, detail="批次不存在")
-    if batch.status == "closed":
-        raise HTTPException(status_code=400, detail="已結案的批次不可修改")
+    # 已出口後的批次資料不可修改（只允許在台灣入庫前的狀態編輯）
+    _IMMUTABLE_STATUSES = {"exported", "in_transit_tw", "in_stock", "sold", "closed"}
+    if batch.status in _IMMUTABLE_STATUSES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"批次已進入「{batch.status}」狀態，不可修改",
+        )
 
     data = payload.model_dump(exclude_unset=True)
     for field, value in data.items():
@@ -182,9 +190,9 @@ def _validate_advance(db: Session, batch: Batch) -> Optional[str]:
 
 @router.put("/{batch_id}/advance", response_model=BatchOut)
 def advance_batch_status(
-    batch_id: UUID,
-    db:       Session = Depends(get_db),
-    _:        User = Depends(check_permission("batch", "edit")),
+    batch_id:     UUID,
+    db:           Session = Depends(get_db),
+    current_user: User = Depends(check_permission("batch", "edit")),
 ):
     """推進批次至下一個狀態（含前置驗證）"""
     batch = db.query(Batch).filter(Batch.id == batch_id).first()
@@ -195,17 +203,22 @@ def advance_batch_status(
     if error:
         raise HTTPException(status_code=400, detail=error)
 
+    old_status = batch.status
     batch.status = STATUS_NEXT[batch.status]
+    write_audit_log(db, "status_change",
+                    user_id=current_user.id,
+                    entity_type="batch", entity_id=batch.id,
+                    changes={"old_status": old_status, "new_status": batch.status})
     db.commit()
     return _load_batch(db, batch_id)
 
 
 @router.delete("/{batch_id}", status_code=204)
 def delete_batch(
-    batch_id: UUID,
-    force:    bool = False,   # ?force=true 允許強制刪除任何狀態（需 delete 權限）
-    db:       Session = Depends(get_db),
-    _:        User = Depends(check_permission("batch", "delete")),
+    batch_id:     UUID,
+    force:        bool = False,   # ?force=true 允許強制刪除任何狀態（需 delete 權限）
+    db:           Session = Depends(get_db),
+    current_user: User = Depends(check_permission("batch", "delete")),
 ):
     """
     刪除批次。
@@ -226,6 +239,10 @@ def delete_batch(
                    "若確認要刪除，請使用 ?force=true 參數（管理員操作）",
         )
 
+    write_audit_log(db, "delete",
+                    user_id=current_user.id,
+                    entity_type="batch", entity_id=batch.id,
+                    changes={"batch_no": batch.batch_no, "status": batch.status, "force": force})
     db.delete(batch)
     db.commit()
 

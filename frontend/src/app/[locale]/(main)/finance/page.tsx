@@ -10,9 +10,9 @@ import { useLocale } from 'next-intl';
 import Link from 'next/link';
 import {
   Archive, BarChart3, TrendingUp, TrendingDown, RefreshCw,
-  Calendar, ChevronDown, ChevronUp, Package
+  Calendar, ChevronDown, ChevronUp, Package, FileText, DollarSign
 } from 'lucide-react';
-import { analyticsApi, batchesApi } from '@/lib/api';
+import { analyticsApi, batchesApi, financeApi } from '@/lib/api';
 
 // ─── 型別 ─────────────────────────────────────────────────────
 
@@ -60,7 +60,10 @@ const MARKET_LABELS: Record<string, string> = {
 
 export default function FinancePage() {
   const locale = useLocale();
-  const [tab, setTab] = useState<'history' | 'daily'>('history');
+  const [tab, setTab] = useState<'history' | 'daily' | 'ar' | 'ap'>('ar');
+  const [arList, setArList] = useState<any[]>([]);
+  const [apList, setApList] = useState<any[]>([]);
+  const [financeSummary, setFinanceSummary] = useState<any>(null);
 
   // ── 批次歷史 ──
   const [batches, setBatches]         = useState<BatchAnalytic[]>([]);
@@ -108,8 +111,15 @@ export default function FinancePage() {
     }
   };
 
-  useEffect(() => { loadHistory(); }, []);
+  useEffect(() => { if (tab === 'history') loadHistory(); }, []);
   useEffect(() => { if (tab === 'daily') loadDaily(); }, [tab]);
+  useEffect(() => {
+    if (tab === 'ar') {
+      financeApi.listAR({}).then(r => setArList(r.data)).catch(console.error);
+      financeApi.summary().then(r => setFinanceSummary(r.data)).catch(console.error);
+    }
+    if (tab === 'ap') financeApi.listAP({}).then(r => setApList(r.data)).catch(console.error);
+  }, [tab]);
 
   // ── 摘要統計 ──
   const totalRevenue = batches.reduce((s, b) => s + b.sales_revenue_twd, 0);
@@ -132,22 +142,22 @@ export default function FinancePage() {
 
       {/* Tab 切換 */}
       <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg w-fit">
-        <button
-          onClick={() => setTab('history')}
-          className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-            tab === 'history' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <Archive size={15} /> 批次歷史存檔
-        </button>
-        <button
-          onClick={() => setTab('daily')}
-          className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-            tab === 'daily' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <BarChart3 size={15} /> 每日銷售報表
-        </button>
+        {[
+          { key: 'ar', label: '應收帳款', icon: FileText },
+          { key: 'ap', label: '應付帳款', icon: DollarSign },
+          { key: 'history', label: '批次歷史', icon: Archive },
+          { key: 'daily', label: '每日銷售', icon: BarChart3 },
+        ].map(t => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key as any)}
+            className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              tab === t.key ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <t.icon size={15} /> {t.label}
+          </button>
+        ))}
       </div>
 
       {/* ── 批次歷史存檔 ── */}
@@ -300,6 +310,85 @@ export default function FinancePage() {
             </div>
           )}
         </>
+      )}
+
+      {/* ── 應收帳款 ── */}
+      {tab === 'ar' && (
+        <>
+          {financeSummary && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+              <div className="card p-4">
+                <p className="text-xs text-gray-400">AR 未收總額</p>
+                <p className="text-xl font-bold text-blue-600">NT${Math.round(financeSummary.ar_outstanding_twd || 0).toLocaleString()}</p>
+              </div>
+              <div className="card p-4">
+                <p className="text-xs text-gray-400">AR 逾期</p>
+                <p className="text-xl font-bold text-red-600">NT${Math.round(financeSummary.ar_overdue_twd || 0).toLocaleString()}</p>
+              </div>
+              <div className="card p-4">
+                <p className="text-xs text-gray-400">本月營收</p>
+                <p className="text-xl font-bold text-green-600">NT${Math.round(financeSummary.month_revenue_twd || 0).toLocaleString()}</p>
+              </div>
+              <div className="card p-4">
+                <p className="text-xs text-gray-400">本月確認收款</p>
+                <p className="text-xl font-bold text-gray-800">NT${Math.round(financeSummary.month_confirmed_payments_twd || 0).toLocaleString()}</p>
+              </div>
+            </div>
+          )}
+          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+            <div className="grid grid-cols-6 gap-3 px-5 py-3 bg-gray-50 border-b text-xs font-semibold text-gray-500 uppercase">
+              <div>編號</div><div>客戶</div><div className="text-right">應收</div><div className="text-right">未收</div><div>到期日</div><div>狀態</div>
+            </div>
+            {arList.length === 0 ? (
+              <div className="text-center py-10 text-gray-400">尚無應收帳款</div>
+            ) : arList.map((ar: any, idx: number) => (
+              <div key={ar.id} className={`grid grid-cols-6 gap-3 px-5 py-3 items-center ${idx < arList.length - 1 ? 'border-b border-gray-100' : ''}`}>
+                <div className="font-mono text-sm text-gray-600">{ar.ar_no}</div>
+                <div className="text-sm text-gray-800">{ar.customer_name}</div>
+                <div className="text-right text-sm">NT${Math.round(ar.original_amount_twd).toLocaleString()}</div>
+                <div className="text-right text-sm font-semibold text-gray-800">NT${Math.round(ar.outstanding_amount_twd).toLocaleString()}</div>
+                <div className="text-sm text-gray-500">{ar.due_date || '-'}</div>
+                <div>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                    ar.status === 'settled' ? 'bg-green-100 text-green-700' :
+                    ar.status === 'overdue' ? 'bg-red-100 text-red-700' :
+                    ar.status === 'partial' ? 'bg-yellow-100 text-yellow-700' :
+                    'bg-blue-100 text-blue-700'
+                  }`}>{ar.status === 'settled' ? '已結清' : ar.status === 'overdue' ? '逾期' : ar.status === 'partial' ? '部分' : '待收'}</span>
+                  {ar.days_overdue > 0 && <span className="text-xs text-red-500 ml-1">{ar.days_overdue}天</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* ── 應付帳款 ── */}
+      {tab === 'ap' && (
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          <div className="grid grid-cols-6 gap-3 px-5 py-3 bg-gray-50 border-b text-xs font-semibold text-gray-500 uppercase">
+            <div>編號</div><div>供應商</div><div className="text-right">應付</div><div className="text-right">未付</div><div>到期日</div><div>狀態</div>
+          </div>
+          {apList.length === 0 ? (
+            <div className="text-center py-10 text-gray-400">尚無應付帳款</div>
+          ) : apList.map((ap: any, idx: number) => (
+            <div key={ap.id} className={`grid grid-cols-6 gap-3 px-5 py-3 items-center ${idx < apList.length - 1 ? 'border-b border-gray-100' : ''}`}>
+              <div className="font-mono text-sm text-gray-600">{ap.ap_no}</div>
+              <div className="text-sm text-gray-800">{ap.supplier_name}</div>
+              <div className="text-right text-sm">{ap.original_amount_thb ? `฿${Math.round(ap.original_amount_thb).toLocaleString()}` : `NT$${Math.round(ap.original_amount_twd || 0).toLocaleString()}`}</div>
+              <div className="text-right text-sm font-semibold">{ap.outstanding_amount_thb ? `฿${Math.round(ap.outstanding_amount_thb).toLocaleString()}` : `NT$${Math.round(ap.outstanding_amount_twd || 0).toLocaleString()}`}</div>
+              <div className="text-sm text-gray-500">{ap.due_date || '-'}</div>
+              <div>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                  ap.status === 'settled' ? 'bg-green-100 text-green-700' :
+                  ap.status === 'overdue' ? 'bg-red-100 text-red-700' :
+                  ap.status === 'partial' ? 'bg-yellow-100 text-yellow-700' :
+                  'bg-blue-100 text-blue-700'
+                }`}>{ap.status === 'settled' ? '已結清' : ap.status === 'overdue' ? '逾期' : ap.status === 'partial' ? '部分' : '待付'}</span>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
       {/* ── 每日銷售報表 ── */}

@@ -181,10 +181,19 @@ export default function PurchasesPage() {
                         {t('farmerSource')}：{po.source_farmer.name}
                       </p>
                     )}
+                    {po.product_type && (
+                      <span className="inline-block mt-1 px-2 py-0.5 rounded bg-indigo-50 text-indigo-600 text-xs font-medium">
+                        {po.product_type.name_zh}
+                      </span>
+                    )}
                   </div>
 
                   {/* 中間：重量 + 金額 */}
                   <div className="hidden sm:flex gap-6 text-sm">
+                    <div className="text-center">
+                      <p className="text-xs text-gray-400 mb-0.5">單價</p>
+                      <p className="font-semibold text-gray-700">฿{Number(po.unit_price).toLocaleString()}/kg</p>
+                    </div>
                     <div className="text-center">
                       <p className="text-xs text-gray-400 mb-0.5">{tc('estimatedWeight')}</p>
                       <p className="font-semibold text-gray-700">{Number(po.estimated_weight).toLocaleString()} kg</p>

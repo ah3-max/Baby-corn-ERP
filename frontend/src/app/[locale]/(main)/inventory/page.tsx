@@ -419,6 +419,18 @@ function LotRow({
             ) : '—'}
           </p>
           {lot.spec && <p className="text-xs text-gray-400 truncate max-w-[140px]">{lot.spec}</p>}
+          <div className="flex items-center gap-1 mt-0.5">
+            {lot.inspection_result && (
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                lot.inspection_result === 'pass' ? 'bg-green-100 text-green-700' :
+                lot.inspection_result === 'fail' ? 'bg-red-100 text-red-700' :
+                'bg-gray-100 text-gray-500'
+              }`}>{lot.inspection_result === 'pass' ? '通過' : lot.inspection_result === 'fail' ? '不通過' : lot.inspection_result}</span>
+            )}
+            {lot.customs_declaration_no && (
+              <span className="text-[10px] text-gray-400">{lot.customs_declaration_no}</span>
+            )}
+          </div>
         </div>
         <div className="text-sm text-gray-700">
           <p>{lot.warehouse?.name ?? '—'}</p>

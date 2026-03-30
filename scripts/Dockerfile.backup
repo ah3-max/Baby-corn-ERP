@@ -1,0 +1,13 @@
+FROM postgres:16-alpine
+
+# 安裝 bash（alpine 預設只有 sh）
+RUN apk add --no-cache bash
+
+# 複製備份腳本
+COPY backup.sh /backup.sh
+RUN chmod +x /backup.sh
+
+# 設定 crond 排程
+COPY crontab.txt /etc/crontabs/root
+
+CMD ["crond", "-f", "-l", "2"]

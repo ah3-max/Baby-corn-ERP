@@ -5,7 +5,7 @@ from uuid import UUID
 from datetime import datetime, date
 from decimal import Decimal
 from typing import Optional
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from schemas.supplier import SupplierOut
 
@@ -17,8 +17,8 @@ class PurchaseOrderCreate(BaseModel):
     supplier_id:      UUID
     source_farmer_id: Optional[UUID] = None
     product_type_id:  Optional[UUID] = None  # 品項類型
-    estimated_weight: Decimal
-    unit_price:       Decimal
+    estimated_weight: Decimal = Field(gt=0, description="預估重量（kg），必須大於 0")
+    unit_price:       Decimal = Field(gt=0, description="單價（THB/kg），必須大於 0")
     expected_arrival: Optional[datetime] = None
     note:             Optional[str] = None
 

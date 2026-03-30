@@ -101,6 +101,7 @@ class InventoryLot(Base):
     batch     = relationship("Batch",             foreign_keys=[batch_id])
     warehouse = relationship("Warehouse",         back_populates="lots")
     location  = relationship("WarehouseLocation", back_populates="lots")
+    shipment  = relationship("Shipment",          foreign_keys=[shipment_id])  # WP1-3：補齊 ORM 關聯
     creator   = relationship("User",              foreign_keys=[created_by])
     transactions = relationship("InventoryTransaction", back_populates="lot",
                                 order_by="InventoryTransaction.created_at")

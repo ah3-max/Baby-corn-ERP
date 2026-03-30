@@ -58,5 +58,30 @@ services:
     depends_on:
       - backend
 
+  # ─── 資料庫備份服務（手動啟用：docker compose --profile backup up backup）
+  backup:
+    build:
+      context: ./scripts
+      dockerfile: Dockerfile.backup
+    container_name: babycorn_backup
+    profiles:
+      - backup
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-7}
+      BACKUP_DIR: /backups
+    volumes:
+      - ./backups:/backups          # 備份檔案掛到宿主機 ./backups 目錄
+      - ./scripts/backup.sh:/backup.sh:ro
+      - ./scripts/crontab.txt:/etc/crontabs/root:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   postgres_data:

@@ -172,6 +172,10 @@ export default function ShipmentsPage() {
                       {sh.carrier && <span>{t('carrier')}: {sh.carrier}</span>}
                       {sh.bl_no && <span>B/L: {sh.bl_no}</span>}
                       {sh.awb_no && <span>AWB: {sh.awb_no}</span>}
+                      {sh.container_no && <span>貨櫃: {sh.container_no}</span>}
+                      {sh.port_of_loading && <span>{sh.port_of_loading} → {sh.port_of_discharge || '?'}</span>}
+                      {sh.flight_no && <span>航班: {sh.flight_no}</span>}
+                      {sh.phyto_cert_no && <span>植檢: {sh.phyto_cert_no}</span>}
                     </div>
                   </div>
 

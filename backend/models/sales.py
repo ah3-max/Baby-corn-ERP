@@ -27,6 +27,7 @@ class SalesOrder(Base):
     total_amount_twd = Column(Numeric(14, 2), nullable=False, default=Decimal("0"))  # 總金額（TWD）
     status           = Column(String(20), nullable=False, default="draft")
     note             = Column(Text, nullable=True)
+    idempotency_key  = Column(String(100), unique=True, nullable=True)          # 冪等鍵（防重複送出）
     created_by       = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at       = Column(DateTime, default=datetime.utcnow)
     updated_at       = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -47,6 +48,7 @@ class SalesOrderItem(Base):
     quantity_kg      = Column(Numeric(10, 2), nullable=False)                  # 數量（kg）
     unit_price_twd   = Column(Numeric(10, 2), nullable=False)                  # 單價（TWD/kg）
     total_amount_twd = Column(Numeric(12, 2), nullable=False)                  # 小計（TWD）
+    cost_per_kg_twd  = Column(Numeric(10, 4), nullable=True)                   # 成本快照（出貨時鎖定）
     note             = Column(Text, nullable=True)
 
     sales_order = relationship("SalesOrder", back_populates="items")

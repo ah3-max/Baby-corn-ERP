@@ -26,6 +26,9 @@ from utils.dependencies import check_permission
 
 router = APIRouter(tags=["成本管理"])
 
+# 批次進入這些狀態後，成本事件不可新增/沖銷（帳本已鎖定）
+_COST_LOCKED_STATUSES = {"exported", "in_transit_tw", "in_stock", "sold", "closed"}
+
 
 # ─── Schemas ─────────────────────────────────────────
 
@@ -153,6 +156,11 @@ def create_cost_event(
     batch = db.query(Batch).filter(Batch.id == batch_id).first()
     if not batch:
         raise HTTPException(status_code=404, detail="批次不存在")
+    if batch.status in _COST_LOCKED_STATUSES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"批次已進入「{batch.status}」狀態，成本帳本已鎖定，無法新增成本事件",
+        )
     if not payload.amount_thb and not payload.amount_twd:
         raise HTTPException(status_code=400, detail="amount_thb 和 amount_twd 至少填一個")
 
@@ -171,6 +179,12 @@ def create_cost_event(
         recorded_by=current_user.id,
     )
     db.add(event)
+    db.flush()
+
+    # 自動重算 BatchCostSheet
+    from services.cost_automation import refresh_cost_sheet
+    refresh_cost_sheet(db, batch_id)
+
     db.commit()
     db.refresh(event)
     return _event_to_out(event)
@@ -184,6 +198,14 @@ def void_cost_event(
     current_user: User = Depends(check_permission("cost", "edit")),
 ):
     """沖銷成本事件（新增一筆反向記錄，不刪除原始記錄）"""
+    batch = db.query(Batch).filter(Batch.id == batch_id).first()
+    if not batch:
+        raise HTTPException(status_code=404, detail="批次不存在")
+    if batch.status in _COST_LOCKED_STATUSES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"批次已進入「{batch.status}」狀態，成本帳本已鎖定，無法沖銷成本事件",
+        )
     original = db.query(CostEvent).filter(
         CostEvent.id == event_id, CostEvent.batch_id == batch_id,
     ).first()
@@ -206,6 +228,12 @@ def void_cost_event(
         recorded_by=current_user.id,
     )
     db.add(void_event)
+    db.flush()
+
+    # 自動重算 BatchCostSheet
+    from services.cost_automation import refresh_cost_sheet
+    refresh_cost_sheet(db, batch_id)
+
     db.commit()
     db.refresh(void_event)
     return _event_to_out(void_event)

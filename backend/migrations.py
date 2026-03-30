@@ -218,9 +218,54 @@ def run_migrations(engine):
             ))
             conn.commit()
 
+    # ── WP1-2：sales_order_items 加入成本快照欄位 ─────────────────
+    with engine.connect() as conn:
+        conn.execute(text(
+            "ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS "
+            "cost_per_kg_twd NUMERIC(10,4)"
+        ))
+        conn.commit()
+
     # ── 舊 batch_cost_items 資料遷移 ──────────────────────────────
     if "batch_cost_items" in existing:
         migrate_legacy_cost_items(engine)
+
+    # ── WP3：Customer 擴展欄位 ──────────────────────────────────
+    with engine.connect() as conn:
+        customer_new_cols = [
+            ("channel_type",          "VARCHAR(20)"),        # chain_store/distributor/wholesaler/restaurant/consignee/direct/th_supplier
+            ("tier",                  "VARCHAR(10)"),        # vip/a/b/c/potential
+            ("credit_limit_twd",      "NUMERIC(14,2)"),      # 信用額度
+            ("current_ar_balance_twd", "NUMERIC(14,2) DEFAULT 0"),  # 目前應收餘額（快取）
+            ("sales_team_id",         "UUID REFERENCES sales_teams(id) ON DELETE SET NULL"),
+        ]
+        for col, typ in customer_new_cols:
+            try:
+                conn.execute(text(f"ALTER TABLE customers ADD COLUMN IF NOT EXISTS {col} {typ}"))
+            except Exception:
+                pass
+        conn.commit()
+
+    # ── P1-4：sales_orders 冪等鍵欄位 ─────────────────────────────
+    with engine.connect() as conn:
+        conn.execute(text(
+            "ALTER TABLE sales_orders ADD COLUMN IF NOT EXISTS "
+            "idempotency_key VARCHAR(100) UNIQUE"
+        ))
+        conn.commit()
+
+    # ── P0-7：suppliers 敏感欄位加寬為 TEXT（Fernet 加密後長度超過 VARCHAR(20/200)）
+    with engine.connect() as conn:
+        conn.execute(text(
+            "ALTER TABLE suppliers ALTER COLUMN national_id TYPE TEXT"
+        ))
+        conn.execute(text(
+            "ALTER TABLE suppliers ALTER COLUMN bank_account TYPE TEXT"
+        ))
+        conn.commit()
+
+    # ── WP1-3：高頻查詢欄位索引 ──────────────────────────────────
+    _create_indexes(engine)
 
 
 # ── 舊成本資料遷移邏輯 ──────────────────────────────────────────────
@@ -284,4 +329,68 @@ def migrate_legacy_cost_items(engine):
                 "recorded_by": row.created_by,
                 "notes": row.note,
             })
+        conn.commit()
+
+
+def _create_indexes(engine):
+    """WP1-3：為高頻查詢欄位建立索引（CREATE INDEX IF NOT EXISTS，可重複執行）"""
+    indexes = [
+        # batches
+        ("ix_batches_status",               "batches",              "status"),
+        ("ix_batches_purchase_order_id",    "batches",              "purchase_order_id"),
+        ("ix_batches_product_type_id",      "batches",              "product_type_id"),
+        ("ix_batches_created_at",           "batches",              "created_at"),
+        # purchase_orders
+        ("ix_purchase_orders_status",       "purchase_orders",      "status"),
+        ("ix_purchase_orders_supplier_id",  "purchase_orders",      "supplier_id"),
+        ("ix_purchase_orders_created_at",   "purchase_orders",      "created_at"),
+        # qc_records
+        ("ix_qc_records_batch_id",          "qc_records",           "batch_id"),
+        ("ix_qc_records_result",            "qc_records",           "result"),
+        ("ix_qc_records_checked_at",        "qc_records",           "checked_at"),
+        # sales_orders
+        ("ix_sales_orders_customer_id",     "sales_orders",         "customer_id"),
+        ("ix_sales_orders_status",          "sales_orders",         "status"),
+        ("ix_sales_orders_created_at",      "sales_orders",         "created_at"),
+        # sales_order_items
+        ("ix_sales_order_items_batch_id",   "sales_order_items",    "batch_id"),
+        ("ix_sales_order_items_order_id",   "sales_order_items",    "sales_order_id"),
+        # inventory_lots
+        ("ix_inventory_lots_batch_id",      "inventory_lots",       "batch_id"),
+        ("ix_inventory_lots_warehouse_id",  "inventory_lots",       "warehouse_id"),
+        ("ix_inventory_lots_status",        "inventory_lots",       "status"),
+        ("ix_inventory_lots_received_date", "inventory_lots",       "received_date"),
+        # inventory_transactions
+        ("ix_inv_txn_lot_id",               "inventory_transactions", "lot_id"),
+        ("ix_inv_txn_created_at",           "inventory_transactions", "created_at"),
+        # cost_events
+        ("ix_cost_events_batch_id",         "cost_events",          "batch_id"),
+        ("ix_cost_events_cost_layer",       "cost_events",          "cost_layer"),
+        ("ix_cost_events_recorded_at",      "cost_events",          "recorded_at"),
+        # daily_sales
+        ("ix_daily_sales_sale_date",        "daily_sales",          "sale_date"),
+        ("ix_daily_sales_customer_id",      "daily_sales",          "customer_id"),
+        # payment_records
+        ("ix_payment_records_customer_id",  "payment_records",      "customer_id"),
+        ("ix_payment_records_sales_order",  "payment_records",      "sales_order_id"),
+        ("ix_payment_records_payment_date", "payment_records",      "payment_date"),
+        # shipments
+        ("ix_shipments_status",             "shipments",            "status"),
+        ("ix_shipments_created_at",         "shipments",            "created_at"),
+        # processing_orders
+        ("ix_processing_orders_status",     "processing_orders",    "status"),
+        ("ix_processing_orders_factory_id", "processing_orders",    "oem_factory_id"),
+        # suppliers
+        ("ix_suppliers_is_active",          "suppliers",            "is_active"),
+        # customers
+        ("ix_customers_is_active",          "customers",            "is_active"),
+    ]
+    with engine.connect() as conn:
+        for idx_name, table, column in indexes:
+            try:
+                conn.execute(text(
+                    f"CREATE INDEX IF NOT EXISTS {idx_name} ON {table} ({column})"
+                ))
+            except Exception:
+                pass  # 表或欄位可能不存在，跳過
         conn.commit()

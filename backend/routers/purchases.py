@@ -31,6 +31,8 @@ router = APIRouter(prefix="/purchases", tags=["採購管理"])
 
 def _generate_order_no(db: Session, order_date) -> str:
     """產生採購編號：PO-YYYYMMDD-XXX"""
+    from sqlalchemy import text
+    db.execute(text("SELECT pg_advisory_xact_lock(hashtext('po_order_no'))"))
     date_str = order_date.strftime("%Y%m%d")
     prefix = f"PO-{date_str}-"
     count = db.query(func.count(PurchaseOrder.id)).filter(
@@ -230,6 +232,56 @@ def confirm_arrival(
     )
     db.add(batch)
     db.flush()  # 取得 batch.id
+
+    # ─── 自動建立 material 成本事件（採購成本）───
+    from services.cost_automation import create_cost_event, get_system_exchange_rate
+    ex_rate = get_system_exchange_rate(db)
+    material_cost_thb = usable * po.unit_price  # 可用重量 × 單價
+    create_cost_event(
+        db=db,
+        batch_id=batch.id,
+        cost_layer="material",
+        cost_type="purchase_price",
+        description_zh=f"採購成本（{po.order_no}）",
+        amount_thb=material_cost_thb,
+        exchange_rate=ex_rate,
+        quantity=usable,
+        unit_cost=po.unit_price,
+        unit_label="kg",
+        notes=f"供應商: {db.query(Supplier).filter(Supplier.id == po.supplier_id).first().name if po.supplier_id else 'N/A'}",
+        recorded_by=current_user.id,
+        auto_source="po_arrival",
+    )
+
+    # ─── 自動建立應付帳款 AP ───
+    from models.finance import AccountPayable
+    from datetime import timedelta
+    ap_date_str = datetime.utcnow().strftime("%Y%m%d")
+    ap_prefix = f"AP-{ap_date_str}-"
+    ap_count = db.query(func.count(AccountPayable.id)).filter(
+        AccountPayable.ap_no.like(f"{ap_prefix}%")
+    ).scalar()
+    ap_no = f"{ap_prefix}{str(ap_count + 1).zfill(3)}"
+
+    # 依供應商付款條件計算到期日
+    sup = db.query(Supplier).filter(Supplier.id == po.supplier_id).first()
+    sup_terms = sup.payment_terms if sup else "NET30"
+    days_map = {"COD": 0, "NET7": 7, "NET15": 15, "NET30": 30, "NET60": 60}
+    due_days = days_map.get(sup_terms, 30)
+
+    ap = AccountPayable(
+        ap_no=ap_no,
+        supplier_id=po.supplier_id,
+        source_type="purchase_order",
+        source_id=po.id,
+        original_amount_thb=po.total_amount,
+        outstanding_amount_thb=po.total_amount,
+        due_date=datetime.utcnow().date() + timedelta(days=due_days),
+        payment_terms=sup_terms,
+        note=f"採購單 {po.order_no} 到廠自動建立",
+        created_by=current_user.id,
+    )
+    db.add(ap)
 
     db.commit()
 

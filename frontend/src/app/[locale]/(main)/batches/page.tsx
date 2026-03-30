@@ -296,10 +296,22 @@ export default function BatchesPage() {
                       </div>
                       <p className="text-base font-medium text-gray-800 truncate">
                         {batch.purchase_order?.supplier?.name ?? '—'}
+                        {(batch as any).size_grade && (
+                          <span className="ml-2 px-1.5 py-0.5 rounded text-xs font-bold bg-indigo-50 text-indigo-600">
+                            {(batch as any).size_grade}
+                          </span>
+                        )}
                       </p>
-                      <p className="text-xs text-gray-400 mt-0.5 font-mono">
-                        {batch.purchase_order?.order_no ?? '—'}
-                      </p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs text-gray-400 font-mono">
+                          {batch.purchase_order?.order_no ?? '—'}
+                        </span>
+                        {(batch as any).product_type && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-purple-50 text-purple-600">
+                            {(batch as any).product_type.name_zh}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {/* 中間：重量資訊 */}

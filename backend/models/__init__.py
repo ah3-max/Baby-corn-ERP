@@ -20,3 +20,23 @@ from models.attachment import Attachment, AttachmentTag
 from models.notification import Notification
 from models.system import SystemSetting, I18nOverride
 from models.audit import DomainEvent, AuditLog
+# WP8：每日摘要
+from models.daily_summary import DailySummarySnapshot, AlertRule
+# WP7：計劃
+from models.planning import ProcurementPlan, ProcurementPlanItem, WeatherForecast, FinancialPlan
+# WP5：財務
+from models.finance import AccountReceivable, AccountPayable
+# WP4：物流派遣
+from models.logistics import (
+    Driver, DeliveryOrder, DeliveryOrderItem, DeliveryProof,
+    OutboundOrder, OutboundOrderItem,
+)
+# WP3：業務 CRM
+from models.sales_team import SalesTeam, SalesTeamMember
+from models.crm_activity import CRMActivity, CRMTask
+# WP2：QC 品質管理強化
+from models.qc_enhanced import (
+    QCSamplingRule, QCInspection, QCPhoto, QCScoreCard,
+    ChannelQCStandard, ProcessingStepLog, TemperatureLog,
+    FactoryAutomationLog, ShelfLifePrediction,
+)

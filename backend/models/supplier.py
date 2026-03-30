@@ -9,6 +9,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
 from database import Base
+from utils.encryption import EncryptedString
 
 
 class Supplier(Base):
@@ -24,13 +25,13 @@ class Supplier(Base):
     contact_name    = Column(String(100), nullable=True)              # 聯絡人
     phone           = Column(String(30), nullable=True)               # 電話
     line_id         = Column(String(50), nullable=True)               # LINE ID
-    national_id     = Column(String(20), nullable=True)               # 泰國身分證號碼
+    national_id     = Column(EncryptedString, nullable=True)           # 泰國身分證號碼（加密儲存）
     region          = Column(String(100), nullable=True)              # 地區 / 省份
     province        = Column(String(50), nullable=True)               # 省份（細分）
     district        = Column(String(50), nullable=True)               # 區域
     address         = Column(Text, nullable=True)                     # 地址
     payment_terms   = Column(String(100), nullable=True)              # 付款條件
-    bank_account    = Column(String(200), nullable=True)              # 銀行帳戶
+    bank_account    = Column(EncryptedString, nullable=True)           # 銀行帳戶（加密儲存）
     gap_cert_no     = Column(String(50), nullable=True)               # GAP 認證號碼
     gap_cert_expiry = Column(Date, nullable=True)                     # GAP 認證到期日
     note            = Column(Text, nullable=True)                     # 備註

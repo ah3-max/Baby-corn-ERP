@@ -3,16 +3,16 @@ from uuid import UUID
 from datetime import datetime, date
 from decimal import Decimal
 from typing import Optional, List, Any
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 
 class DailySaleItemCreate(BaseModel):
     batch_id:        UUID
     lot_id:          Optional[UUID] = None
     size_grade:      Optional[str] = None
-    quantity_boxes:  Optional[int] = None
-    quantity_kg:     Decimal
-    unit_price_twd:  Decimal
+    quantity_boxes:  Optional[int] = Field(None, ge=0)
+    quantity_kg:     Decimal = Field(gt=0, description="銷售重量（kg），必須大於 0")
+    unit_price_twd:  Decimal = Field(gt=0, description="單價（TWD/kg），必須大於 0")
     notes:           Optional[str] = None
 
     @model_validator(mode="after")
@@ -25,7 +25,7 @@ class DailySaleItemCreate(BaseModel):
 
 class DailySaleCreate(BaseModel):
     sale_date:       date
-    market_code:     str                       # TPE_M1 / TPE_M2 / OTHER
+    market_code:     str = Field(min_length=1)  # TPE_M1 / TPE_M2 / OTHER
     customer_id:     Optional[UUID] = None
     consignee_name:  Optional[str] = None
     notes:           Optional[str] = None

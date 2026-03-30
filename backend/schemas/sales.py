@@ -3,7 +3,7 @@ from uuid import UUID
 from datetime import datetime, date
 from decimal import Decimal
 from typing import Optional, List
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 
 class CustomerSimple(BaseModel):
@@ -24,8 +24,8 @@ class BatchSimple(BaseModel):
 
 class SalesItemCreate(BaseModel):
     batch_id:       UUID
-    quantity_kg:    Decimal
-    unit_price_twd: Decimal
+    quantity_kg:    Decimal = Field(gt=0, description="銷售重量（kg），必須大於 0")
+    unit_price_twd: Decimal = Field(gt=0, description="單價（TWD/kg），必須大於 0")
     note:           Optional[str] = None
 
     @model_validator(mode="after")

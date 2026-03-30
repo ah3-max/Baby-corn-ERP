@@ -401,6 +401,31 @@ def create_lot(
         created_by = current_user.id,
     ))
 
+    # ─── 自動建立進口成本事件（報關費、檢疫費、關稅、冷鏈費、內陸運費）───
+    from services.cost_automation import create_cost_event
+    cost_items = [
+        (payload.customs_fee_twd,      "tw_customs",   "customs_duty",     "報關費"),
+        (payload.quarantine_fee_twd,   "tw_customs",   "quarantine_fee",   "檢疫費"),
+        (payload.import_tax_twd,       "tw_customs",   "import_tax",       "進口關稅"),
+        (payload.cold_chain_fee_twd,   "tw_logistics", "cold_chain_fee",   "冷鏈物流費"),
+        (payload.tw_transport_fee_twd, "tw_logistics", "tw_transport_fee", "台灣內陸運費"),
+    ]
+    for amount, layer, cost_type, desc in cost_items:
+        if amount and amount > 0:
+            create_cost_event(
+                db=db,
+                batch_id=UUID(payload.batch_id),
+                cost_layer=layer,
+                cost_type=cost_type,
+                description_zh=f"{desc}（{lot.lot_no}）",
+                amount_twd=amount,
+                quantity=payload.initial_weight_kg,
+                unit_label="kg",
+                notes=f"入庫批號: {lot.lot_no}",
+                recorded_by=current_user.id,
+                auto_source="lot_creation",
+            )
+
     db.commit()
     return _lot_to_out(
         db.query(InventoryLot)

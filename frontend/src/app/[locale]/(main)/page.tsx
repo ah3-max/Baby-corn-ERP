@@ -13,7 +13,7 @@ import {
   AlertTriangle, Clock, CheckCircle, Zap,
   ThumbsUp,
 } from 'lucide-react';
-import { purchasesApi, suppliersApi, batchesApi, shipmentsApi, salesApi, inventoryApi } from '@/lib/api';
+import { purchasesApi, suppliersApi, batchesApi, shipmentsApi, salesApi, inventoryApi, financeApi, crmApi } from '@/lib/api';
 import type { Batch, InventorySummary } from '@/types';
 
 export default function DashboardPage() {
@@ -37,6 +37,11 @@ export default function DashboardPage() {
   const [criticalBatches, setCriticalBatches] = useState<Batch[]>([]);
   const [warningBatches,  setWarningBatches]  = useState<Batch[]>([]);
   const [pendingReceipt,  setPendingReceipt]  = useState(0);  // in_stock but no lot
+
+  // WP5/WP3 新增 KPI
+  const [arOverdue, setArOverdue] = useState(0);
+  const [monthRevenue, setMonthRevenue] = useState(0);
+  const [crmTasks, setCrmTasks] = useState(0);
 
   const [loading, setLoading] = useState(true);
 
@@ -102,6 +107,21 @@ export default function DashboardPage() {
         const withHarvest = activeBatches.filter(b => b.harvest_datetime && b.freshness_status);
         setCriticalBatches(withHarvest.filter(b => b.freshness_status === 'critical' || b.freshness_status === 'expired'));
         setWarningBatches(withHarvest.filter(b => b.freshness_status === 'warning'));
+
+        // WP5/WP3 新增 KPI（獨立 try-catch 避免影響主流程）
+        try {
+          const [finRes, crmRes] = await Promise.allSettled([
+            financeApi.summary(),
+            crmApi.dashboard(),
+          ]);
+          if (finRes.status === 'fulfilled') {
+            setArOverdue(finRes.value.data.ar_overdue_twd || 0);
+            setMonthRevenue(finRes.value.data.month_revenue_twd || 0);
+          }
+          if (crmRes.status === 'fulfilled') {
+            setCrmTasks(crmRes.value.data.pending_tasks || 0);
+          }
+        } catch { /* silent */ }
 
       } catch {
         // silent
@@ -188,9 +208,48 @@ export default function DashboardPage() {
         <StatCard icon={<Users size={20} />}        iconBg="bg-teal-50 text-teal-600"
           label={td('activeSuppliers')} value={activeSuppliers} loading={loading}
           href={`/${locale}/suppliers`} />
-        <StatCard icon={<ShoppingCart size={20} />} iconBg="bg-gray-50 text-gray-600"
+        <StatCard icon={<ShoppingCart size={20} />} iconBg="bg-gray-50 text-gray-500"
           label={td('totalPurchases')} value={totalPurchases} loading={loading}
           href={`/${locale}/purchases`} />
+      </div>
+
+      {/* ── 第三列：財務 + CRM ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <div className="card p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center">
+              <TrendingUp size={20} className="text-green-600" />
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">本月營收</p>
+              <p className="text-lg font-bold text-gray-800">NT${Math.round(monthRevenue).toLocaleString()}</p>
+            </div>
+          </div>
+        </div>
+        <div className="card p-4">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${arOverdue > 0 ? 'bg-red-50' : 'bg-gray-50'}`}>
+              <AlertTriangle size={20} className={arOverdue > 0 ? 'text-red-600' : 'text-gray-400'} />
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">AR 逾期</p>
+              <p className={`text-lg font-bold ${arOverdue > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                NT${Math.round(arOverdue).toLocaleString()}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="card p-4">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${crmTasks > 0 ? 'bg-orange-50' : 'bg-gray-50'}`}>
+              <CheckCircle size={20} className={crmTasks > 0 ? 'text-orange-600' : 'text-gray-400'} />
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">待辦任務</p>
+              <p className="text-lg font-bold text-gray-800">{crmTasks}</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ── 庫存健康 + 鮮度狀態 ── */}

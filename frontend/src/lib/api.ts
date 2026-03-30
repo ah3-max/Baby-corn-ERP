@@ -325,3 +325,165 @@ export const rolesApi = {
   delete: (id: string) => apiClient.delete(`/roles/${id}`),
   listPermissions: () => apiClient.get('/permissions'),
 };
+
+// ─── WP2：QC 品質中心 API ──────────────────────────────────
+
+export const qcEnhancedApi = {
+  listInspections: (params?: { batch_id?: string; stage?: string; result?: string }) =>
+    apiClient.get('/qc/inspections', { params }),
+  getInspection: (id: string) => apiClient.get(`/qc/inspections/${id}`),
+  createInspection: (data: object) => apiClient.post('/qc/inspections', data),
+  updateInspection: (id: string, data: object) => apiClient.put(`/qc/inspections/${id}`, data),
+  deleteInspection: (id: string) => apiClient.delete(`/qc/inspections/${id}`),
+  // 照片
+  uploadPhoto: (inspectionId: string, formData: FormData) =>
+    apiClient.post(`/qc/inspections/${inspectionId}/photos`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  listPhotos: (inspectionId: string) => apiClient.get(`/qc/inspections/${inspectionId}/photos`),
+  deletePhoto: (photoId: string) => apiClient.delete(`/qc/photos/${photoId}`),
+  // 抽樣規則
+  listSamplingRules: () => apiClient.get('/qc/sampling-rules'),
+  createSamplingRule: (data: object) => apiClient.post('/qc/sampling-rules', data),
+  updateSamplingRule: (id: string, data: object) => apiClient.put(`/qc/sampling-rules/${id}`, data),
+  // 通路標準
+  listChannelStandards: (params?: { channel_type?: string }) =>
+    apiClient.get('/qc/channel-standards', { params }),
+  createChannelStandard: (data: object) => apiClient.post('/qc/channel-standards', data),
+  updateChannelStandard: (id: string, data: object) => apiClient.put(`/qc/channel-standards/${id}`, data),
+  checkBatch: (standardId: string, batchId: string) =>
+    apiClient.get(`/qc/channel-standards/${standardId}/check-batch/${batchId}`),
+  // 分析
+  analyticsTrend: (params?: { date_from?: string; date_to?: string }) =>
+    apiClient.get('/qc/analytics/trend', { params }),
+  analyticsSupplierQuality: () => apiClient.get('/qc/analytics/supplier-quality'),
+  analyticsDefectFrequency: (params?: { date_from?: string; date_to?: string }) =>
+    apiClient.get('/qc/analytics/defect-frequency', { params }),
+  analyticsBatchRecommendation: (batchId: string) =>
+    apiClient.get(`/qc/analytics/batch-recommendation/${batchId}`),
+  // 溫度記錄
+  listTemperatureLogs: (params?: { entity_type?: string; entity_id?: string }) =>
+    apiClient.get('/temperature-logs', { params }),
+  createTemperatureLog: (data: object) => apiClient.post('/temperature-logs', data),
+};
+
+// ─── WP3：CRM API ─────────────────────────────────────────
+
+export const crmApi = {
+  // 團隊
+  listTeams: (params?: { region?: string }) => apiClient.get('/crm/teams', { params }),
+  createTeam: (data: object) => apiClient.post('/crm/teams', data),
+  updateTeam: (id: string, data: object) => apiClient.put(`/crm/teams/${id}`, data),
+  addTeamMember: (teamId: string, data: object) => apiClient.post(`/crm/teams/${teamId}/members`, data),
+  removeTeamMember: (teamId: string, memberId: string) => apiClient.delete(`/crm/teams/${teamId}/members/${memberId}`),
+  // 活動
+  listActivities: (params?: { customer_id?: string; user_id?: string }) =>
+    apiClient.get('/crm/activities', { params }),
+  createActivity: (data: object) => apiClient.post('/crm/activities', data),
+  updateActivity: (id: string, data: object) => apiClient.put(`/crm/activities/${id}`, data),
+  // 任務
+  listTasks: (params?: { assigned_to?: string; status?: string }) =>
+    apiClient.get('/crm/tasks', { params }),
+  createTask: (data: object) => apiClient.post('/crm/tasks', data),
+  updateTask: (id: string, data: object) => apiClient.put(`/crm/tasks/${id}`, data),
+  // 分析
+  dashboard: () => apiClient.get('/crm/dashboard'),
+  userPerformance: (userId: string, month?: string) =>
+    apiClient.get(`/crm/user/${userId}/performance`, { params: month ? { month } : {} }),
+  customer360: (customerId: string) => apiClient.get(`/crm/customers/360/${customerId}`),
+  ranking: (month?: string) => apiClient.get('/crm/ranking', { params: month ? { month } : {} }),
+};
+
+// ─── WP4：物流配送 API ─────────────────────────────────────
+
+export const logisticsApi = {
+  // 司機
+  listDrivers: (params?: { is_active?: boolean }) => apiClient.get('/drivers', { params }),
+  createDriver: (data: object) => apiClient.post('/drivers', data),
+  updateDriver: (id: string, data: object) => apiClient.put(`/drivers/${id}`, data),
+  // 配送單
+  listDeliveryOrders: (params?: { status?: string; driver_id?: string; dispatch_date?: string }) =>
+    apiClient.get('/delivery-orders', { params }),
+  getDeliveryOrder: (id: string) => apiClient.get(`/delivery-orders/${id}`),
+  createDeliveryOrder: (data: object) => apiClient.post('/delivery-orders', data),
+  updateDeliveryOrder: (id: string, data: object) => apiClient.put(`/delivery-orders/${id}`, data),
+  acceptDeliveryOrder: (id: string) => apiClient.put(`/delivery-orders/${id}/accept`),
+  advanceDeliveryOrder: (id: string) => apiClient.put(`/delivery-orders/${id}/advance`),
+  deliverItem: (orderId: string, itemId: string, data: object) =>
+    apiClient.post(`/delivery-orders/${orderId}/items/${itemId}/deliver`, data),
+  // 出庫單
+  listOutboundOrders: (params?: { status?: string; warehouse_id?: string }) =>
+    apiClient.get('/outbound-orders', { params }),
+  getOutboundOrder: (id: string) => apiClient.get(`/outbound-orders/${id}`),
+  createOutboundOrder: (data: object) => apiClient.post('/outbound-orders', data),
+  approveOutbound: (id: string) => apiClient.put(`/outbound-orders/${id}/approve`),
+  pickOutbound: (id: string) => apiClient.put(`/outbound-orders/${id}/pick`),
+  shipOutbound: (id: string) => apiClient.put(`/outbound-orders/${id}/ship`),
+};
+
+// ─── WP5：財務 API ────────────────────────────────────────
+
+export const financeApi = {
+  // 應收帳款
+  listAR: (params?: { status?: string; customer_id?: string; overdue?: boolean }) =>
+    apiClient.get('/finance/ar', { params }),
+  createAR: (data: object) => apiClient.post('/finance/ar', data),
+  getAR: (id: string) => apiClient.get(`/finance/ar/${id}`),
+  updateAR: (id: string, data: object) => apiClient.put(`/finance/ar/${id}`, data),
+  arAging: () => apiClient.get('/finance/ar/aging'),
+  // 應付帳款
+  listAP: (params?: { status?: string; supplier_id?: string }) =>
+    apiClient.get('/finance/ap', { params }),
+  createAP: (data: object) => apiClient.post('/finance/ap', data),
+  getAP: (id: string) => apiClient.get(`/finance/ap/${id}`),
+  updateAP: (id: string, data: object) => apiClient.put(`/finance/ap/${id}`, data),
+  apAging: () => apiClient.get('/finance/ap/aging'),
+  // 摘要 & 報表
+  summary: () => apiClient.get('/finance/summary'),
+  profitLoss: (params?: { date_from?: string; date_to?: string }) =>
+    apiClient.get('/finance/profit-loss', { params }),
+};
+
+// ─── WP6：庫存分析 API ─────────────────────────────────────
+
+export const inventoryAnalyticsApi = {
+  aging: (params?: { warehouse_id?: string }) =>
+    apiClient.get('/inventory/analytics/aging', { params }),
+  turnover: (days?: number) =>
+    apiClient.get('/inventory/analytics/turnover', { params: days ? { days } : {} }),
+  depletionForecast: () => apiClient.get('/inventory/analytics/depletion-forecast'),
+  reorderSuggestion: () => apiClient.get('/inventory/analytics/reorder-suggestion'),
+};
+
+// ─── WP7：計劃 API ────────────────────────────────────────
+
+export const planningApi = {
+  // 採購計劃
+  listProcurement: (params?: { month?: string; status?: string }) =>
+    apiClient.get('/plans/procurement', { params }),
+  createProcurement: (data: object) => apiClient.post('/plans/procurement', data),
+  getProcurement: (id: string) => apiClient.get(`/plans/procurement/${id}`),
+  updateProcurement: (id: string, data: object) => apiClient.put(`/plans/procurement/${id}`, data),
+  approveProcurement: (id: string) => apiClient.put(`/plans/procurement/${id}/approve`),
+  // 天氣
+  listWeather: (params?: { region?: string; date_from?: string; date_to?: string }) =>
+    apiClient.get('/plans/weather', { params }),
+  createWeather: (data: object) => apiClient.post('/plans/weather', data),
+  // 財務計劃
+  listFinancialPlans: (params?: { month?: string }) =>
+    apiClient.get('/plans/financial', { params }),
+  createFinancialPlan: (data: object) => apiClient.post('/plans/financial', data),
+  updateFinancialPlan: (id: string, data: object) => apiClient.put(`/plans/financial/${id}`, data),
+  financialVsActual: (month: string) => apiClient.get(`/plans/financial/${month}/vs-actual`),
+};
+
+// ─── WP8：每日摘要 API ─────────────────────────────────────
+
+export const dailySummaryApi = {
+  today: () => apiClient.get('/daily-summary/today'),
+  history: (days?: number) => apiClient.get('/daily-summary/history', { params: days ? { days } : {} }),
+  generate: () => apiClient.post('/daily-summary/generate'),
+  // 告警規則
+  listAlertRules: () => apiClient.get('/alert-rules'),
+  createAlertRule: (data: object) => apiClient.post('/alert-rules', data),
+  updateAlertRule: (id: string, data: object) => apiClient.put(`/alert-rules/${id}`, data),
+  deleteAlertRule: (id: string) => apiClient.delete(`/alert-rules/${id}`),
+};

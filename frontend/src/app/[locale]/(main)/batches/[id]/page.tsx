@@ -2131,9 +2131,9 @@ export default function BatchDetailPage() {
             {attachments.map((att: any) => {
               // 判斷是否為圖片（依 mime_type）
               const isImage = att.mime_type?.startsWith('image/');
-              // 後端靜態檔案 URL：/uploads/{storage_path}
-              const backendBase = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
-              const fileUrl = `${backendBase}/uploads/${att.storage_path}`;
+              // 透過認證下載端點存取附件（需 JWT）
+              const backendBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+              const fileUrl = `${backendBase}/api/v1/attachments/${att.id}/download`;
 
               return (
                 <div

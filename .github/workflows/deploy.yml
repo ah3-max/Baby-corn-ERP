@@ -1,0 +1,101 @@
+name: Deploy — Production
+
+on:
+  push:
+    branches: [main]
+  # 也可手動觸發（例如回滾）
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 手動部署原因
+        required: false
+        default: "手動觸發"
+
+# 同一時間只允許一個 deploy 執行，防止並行部署
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  # ─── CI 必須通過才能部署 ───────────────────────────────────────────
+  ci:
+    name: CI Check
+    uses: ./.github/workflows/ci.yml
+
+  # ─── 部署到正式伺服器 ──────────────────────────────────────────────
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: ci
+    environment: production   # GitHub Environment，可設定 Required Reviewers
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 部署到伺服器（SSH）
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          port: ${{ secrets.PROD_PORT || 22 }}
+          script: |
+            set -e
+
+            echo "=== [$(date)] 開始部署 commit ${{ github.sha }} ==="
+
+            # 切換到專案目錄
+            cd ${{ secrets.PROJ_DIR }}
+
+            # 拉取最新程式碼
+            git fetch origin main
+            git reset --hard origin/main
+
+            # 寫入最新版本號（讓 /health 回傳正確 git sha）
+            echo "GIT_SHA=${{ github.sha }}" >> .env
+
+            # 建置並重啟服務（zero-downtime：先建 image 再 rolling restart）
+            docker compose -f docker-compose.prod.yml build --no-cache backend frontend
+
+            # 執行 Alembic 資料庫遷移（若有新版本）
+            docker compose -f docker-compose.prod.yml run --rm \
+              -e POSTGRES_HOST=db \
+              backend \
+              alembic upgrade head
+
+            # 滾動重啟各服務
+            docker compose -f docker-compose.prod.yml up -d --no-deps backend
+            docker compose -f docker-compose.prod.yml up -d --no-deps frontend
+            docker compose -f docker-compose.prod.yml up -d --no-deps nginx
+
+            # 清理舊的 dangling images，節省磁碟空間
+            docker image prune -f
+
+            echo "=== 部署完成 ==="
+
+      - name: 驗證部署健康狀態
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          port: ${{ secrets.PROD_PORT || 22 }}
+          script: |
+            set -e
+            # 等待服務啟動
+            sleep 15
+
+            # 檢查 backend health endpoint
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/health)
+            if [ "$HTTP_STATUS" != "200" ]; then
+              echo "健康檢查失敗：HTTP $HTTP_STATUS"
+              exit 1
+            fi
+            echo "健康檢查通過：HTTP $HTTP_STATUS"
+
+      - name: 部署失敗通知
+        if: failure()
+        run: |
+          echo "::error::部署失敗！請至 GitHub Actions 查看詳細日誌。"
+          echo "Commit: ${{ github.sha }}"
+          echo "Triggered by: ${{ github.actor }}"

@@ -105,6 +105,42 @@ PERMISSIONS = [
     # 通知
     {"code": "notification.read",  "module": "notification","action": "read",  "name_zh": "查看通知",      "name_en": "View Notification",       "name_th": "ดูการแจ้งเตือน"},
     {"code": "notification.update","module": "notification","action": "update","name_zh": "管理通知",      "name_en": "Manage Notification",     "name_th": "จัดการการแจ้งเตือน"},
+    # ── WP2：QC 品質 ──
+    {"code": "qc_inspection.read",   "module": "qc_inspection",  "action": "read",    "name_zh": "查看 QC 檢驗",   "name_en": "View QC Inspection",    "name_th": "ดูการตรวจ QC"},
+    {"code": "qc_inspection.create", "module": "qc_inspection",  "action": "create",  "name_zh": "新增 QC 檢驗",   "name_en": "Create QC Inspection",  "name_th": "สร้างการตรวจ QC"},
+    {"code": "qc_inspection.edit",   "module": "qc_inspection",  "action": "edit",    "name_zh": "編輯 QC 檢驗",   "name_en": "Edit QC Inspection",    "name_th": "แก้ไขการตรวจ QC"},
+    {"code": "qc_inspection.delete", "module": "qc_inspection",  "action": "delete",  "name_zh": "刪除 QC 檢驗",   "name_en": "Delete QC Inspection",  "name_th": "ลบการตรวจ QC"},
+    {"code": "qc_standard.read",     "module": "qc_standard",    "action": "read",    "name_zh": "查看品質標準",    "name_en": "View QC Standard",      "name_th": "ดูมาตรฐาน QC"},
+    {"code": "qc_standard.create",   "module": "qc_standard",    "action": "create",  "name_zh": "新增品質標準",    "name_en": "Create QC Standard",    "name_th": "สร้างมาตรฐาน QC"},
+    {"code": "temperature_log.read", "module": "temperature_log", "action": "read",   "name_zh": "查看溫度記錄",    "name_en": "View Temperature Log",  "name_th": "ดูบันทึกอุณหภูมิ"},
+    {"code": "temperature_log.create","module": "temperature_log","action": "create",  "name_zh": "新增溫度記錄",    "name_en": "Create Temperature Log","name_th": "สร้างบันทึกอุณหภูมิ"},
+    # ── WP3：CRM ──
+    {"code": "crm.read",             "module": "crm",            "action": "read",    "name_zh": "查看 CRM",       "name_en": "View CRM",              "name_th": "ดู CRM"},
+    {"code": "crm.create",           "module": "crm",            "action": "create",  "name_zh": "新增 CRM 活動",   "name_en": "Create CRM Activity",   "name_th": "สร้างกิจกรรม CRM"},
+    {"code": "crm.edit",             "module": "crm",            "action": "edit",    "name_zh": "編輯 CRM",       "name_en": "Edit CRM",              "name_th": "แก้ไข CRM"},
+    {"code": "crm.delete",           "module": "crm",            "action": "delete",  "name_zh": "刪除 CRM 活動",   "name_en": "Delete CRM Activity",   "name_th": "ลบกิจกรรม CRM"},
+    {"code": "crm.view_performance", "module": "crm",            "action": "view_performance", "name_zh": "查看業績", "name_en": "View Performance",    "name_th": "ดูผลงาน"},
+    # ── WP4：物流 ──
+    {"code": "delivery.read",        "module": "delivery",       "action": "read",    "name_zh": "查看配送單",      "name_en": "View Delivery",         "name_th": "ดูใบส่ง"},
+    {"code": "delivery.create",      "module": "delivery",       "action": "create",  "name_zh": "建立配送單",      "name_en": "Create Delivery",       "name_th": "สร้างใบส่ง"},
+    {"code": "delivery.edit",        "module": "delivery",       "action": "edit",    "name_zh": "編輯配送單",      "name_en": "Edit Delivery",         "name_th": "แก้ไขใบส่ง"},
+    {"code": "outbound.read",        "module": "outbound",       "action": "read",    "name_zh": "查看出庫單",      "name_en": "View Outbound",         "name_th": "ดูใบเบิก"},
+    {"code": "outbound.create",      "module": "outbound",       "action": "create",  "name_zh": "建立出庫單",      "name_en": "Create Outbound",       "name_th": "สร้างใบเบิก"},
+    {"code": "outbound.approve",     "module": "outbound",       "action": "approve", "name_zh": "審批出庫單",      "name_en": "Approve Outbound",      "name_th": "อนุมัติใบเบิก"},
+    {"code": "outbound.pick",        "module": "outbound",       "action": "pick",    "name_zh": "揀貨",           "name_en": "Pick Outbound",         "name_th": "หยิบสินค้า"},
+    {"code": "outbound.ship",        "module": "outbound",       "action": "ship",    "name_zh": "出庫",           "name_en": "Ship Outbound",         "name_th": "จัดส่ง"},
+    # ── WP5：財務 ──
+    {"code": "ar.read",              "module": "ar",             "action": "read",    "name_zh": "查看應收帳款",    "name_en": "View AR",               "name_th": "ดูบัญชีลูกหนี้"},
+    {"code": "ar.create",            "module": "ar",             "action": "create",  "name_zh": "建立應收帳款",    "name_en": "Create AR",             "name_th": "สร้างบัญชีลูกหนี้"},
+    {"code": "ar.edit",              "module": "ar",             "action": "edit",    "name_zh": "編輯應收帳款",    "name_en": "Edit AR",               "name_th": "แก้ไขบัญชีลูกหนี้"},
+    {"code": "ap.read",              "module": "ap",             "action": "read",    "name_zh": "查看應付帳款",    "name_en": "View AP",               "name_th": "ดูบัญชีเจ้าหนี้"},
+    {"code": "ap.create",            "module": "ap",             "action": "create",  "name_zh": "建立應付帳款",    "name_en": "Create AP",             "name_th": "สร้างบัญชีเจ้าหนี้"},
+    {"code": "ap.edit",              "module": "ap",             "action": "edit",    "name_zh": "編輯應付帳款",    "name_en": "Edit AP",               "name_th": "แก้ไขบัญชีเจ้าหนี้"},
+    # ── WP7：計劃 ──
+    {"code": "plan.read",            "module": "plan",           "action": "read",    "name_zh": "查看計劃",       "name_en": "View Plan",             "name_th": "ดูแผน"},
+    {"code": "plan.create",          "module": "plan",           "action": "create",  "name_zh": "建立計劃",       "name_en": "Create Plan",           "name_th": "สร้างแผน"},
+    {"code": "plan.edit",            "module": "plan",           "action": "edit",    "name_zh": "編輯計劃",       "name_en": "Edit Plan",             "name_th": "แก้ไขแผน"},
+    {"code": "plan.approve",         "module": "plan",           "action": "approve", "name_zh": "審批計劃",       "name_en": "Approve Plan",          "name_th": "อนุมัติแผน"},
 ]
 
 # ═══════════════════════════════════════════════════════════════════
@@ -177,6 +213,84 @@ ROLES = [
         "name_en": "Read-Only Viewer", "name_th": "ผู้ชมอ่านอย่างเดียว",
         "is_system": True,
         "permissions": [p["code"] for p in PERMISSIONS if p["action"] == "read"],
+    },
+    # ── WP2-8 新增角色 ──
+    {
+        "code": "qc_manager",
+        "name": "QC 主管", "name_zh": "QC 主管",
+        "name_en": "QC Manager", "name_th": "ผู้จัดการ QC",
+        "is_system": True,
+        "permissions": [
+            "qc_inspection.read", "qc_inspection.create", "qc_inspection.edit", "qc_inspection.delete",
+            "qc_standard.read", "qc_standard.create",
+            "temperature_log.read", "temperature_log.create",
+            "batch.read", "qc.read", "qc.create",
+            "notification.read",
+        ],
+    },
+    {
+        "code": "sales_manager",
+        "name": "業務經理", "name_zh": "業務經理",
+        "name_en": "Sales Manager", "name_th": "ผู้จัดการฝ่ายขาย",
+        "is_system": True,
+        "permissions": [
+            "crm.read", "crm.create", "crm.edit", "crm.delete", "crm.view_performance",
+            "delivery.read", "delivery.create", "delivery.edit",
+            "sales.read", "sales.create", "sales.update",
+            "daily_sale.read", "daily_sale.create", "daily_sale.update",
+            "customer.read", "customer.create", "customer.update",
+            "ar.read", "stock.read", "batch.read",
+            "notification.read",
+        ],
+    },
+    {
+        "code": "sales_rep",
+        "name": "業務人員", "name_zh": "業務人員",
+        "name_en": "Sales Rep", "name_th": "พนักงานขาย",
+        "is_system": True,
+        "permissions": [
+            "crm.read", "crm.create", "crm.edit",
+            "sales.read", "sales.create",
+            "daily_sale.read", "daily_sale.create",
+            "customer.read", "stock.read", "batch.read",
+            "notification.read",
+        ],
+    },
+    {
+        "code": "logistics_manager",
+        "name": "物流主管", "name_zh": "物流主管",
+        "name_en": "Logistics Manager", "name_th": "ผู้จัดการโลจิสติกส์",
+        "is_system": True,
+        "permissions": [
+            "delivery.read", "delivery.create", "delivery.edit",
+            "outbound.read", "outbound.create", "outbound.approve", "outbound.pick", "outbound.ship",
+            "stock.read", "batch.read",
+            "notification.read",
+        ],
+    },
+    {
+        "code": "driver",
+        "name": "司機", "name_zh": "司機",
+        "name_en": "Driver", "name_th": "คนขับรถ",
+        "is_system": False,
+        "permissions": [
+            "delivery.read", "delivery.edit",
+            "notification.read",
+        ],
+    },
+    {
+        "code": "finance_staff",
+        "name": "財務人員", "name_zh": "財務人員",
+        "name_en": "Finance Staff", "name_th": "เจ้าหน้าที่การเงิน",
+        "is_system": True,
+        "permissions": [
+            "ar.read", "ar.create", "ar.edit",
+            "ap.read", "ap.create", "ap.edit",
+            "payment.read", "payment.create", "payment.update",
+            "cost_sheet.read", "profit.read",
+            "plan.read",
+            "notification.read",
+        ],
     },
 ]
 
