@@ -13,6 +13,7 @@ import { authApi } from '@/lib/api';
 import { isLoggedIn } from '@/lib/auth';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { UserProvider } from '@/contexts/UserContext';
+import { Toaster } from 'sonner';
 import type { UserMe } from '@/types';
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
@@ -48,6 +49,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             </main>
           </div>
         </div>
+        <Toaster position="top-right" richColors closeButton />
       </UserProvider>
     </ToastProvider>
   );

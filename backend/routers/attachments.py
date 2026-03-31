@@ -15,6 +15,36 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, joinedload
 
+# Magic bytes → 允許的 MIME 清單
+# 格式：(offset, bytes_to_match, mime_description)
+_MAGIC_SIGNATURES: list[tuple[int, bytes, str]] = [
+    (0,  b'\xff\xd8\xff',             'image/jpeg'),
+    (0,  b'\x89PNG\r\n\x1a\n',        'image/png'),
+    (0,  b'GIF87a',                    'image/gif'),
+    (0,  b'GIF89a',                    'image/gif'),
+    (0,  b'%PDF-',                     'application/pdf'),
+    (0,  b'PK\x03\x04',               'application/zip / Office XML'),
+    (0,  b'PK\x05\x06',               'application/zip (empty)'),
+    # WebP: RIFF....WEBP
+    (8,  b'WEBP',                      'image/webp'),
+]
+
+_ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf', '.xlsx', '.xls', '.docx', '.doc', '.zip'}
+
+
+def _verify_magic_bytes(header: bytes, ext: str) -> bool:
+    """
+    比對檔案頭部 magic bytes，確認實際格式與副檔名一致。
+    回傳 True 表示合法，False 表示疑似偽造。
+    """
+    if ext not in _ALLOWED_EXTENSIONS:
+        return False
+    for offset, magic, _ in _MAGIC_SIGNATURES:
+        end = offset + len(magic)
+        if len(header) >= end and header[offset:end] == magic:
+            return True
+    return False
+
 from config import settings
 from database import get_db
 from models.user import User
@@ -92,6 +122,15 @@ async def upload_attachment(
     # 保留原始副檔名，用 uuid4 生成新檔名避免衝突
     original_filename = file.filename or "upload"
     ext = Path(original_filename).suffix.lower()  # 例如 ".jpg"
+
+    # ── Magic-byte 驗證（防止偽造副檔名上傳惡意檔案）──
+    header = await file.read(16)
+    await file.seek(0)
+    if not _verify_magic_bytes(header, ext):
+        raise HTTPException(
+            status_code=400,
+            detail=f"檔案格式不符或不允許的副檔名（{ext}），請上傳圖片、PDF 或 Office 文件"
+        )
     new_filename = f"{uuid4()}{ext}"
 
     # 相對路徑（儲存到資料庫）

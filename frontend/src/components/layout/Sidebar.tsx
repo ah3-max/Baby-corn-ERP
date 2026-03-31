@@ -1,17 +1,22 @@
 'use client';
 
 /**
- * 左側導航欄 — WP9 更新版（分區域導航）
+ * 左側導航欄 — P3 更新版（群組折疊式導航）
  */
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations, useLocale } from 'next-intl';
+import { useState, useCallback } from 'react';
 import {
   LayoutDashboard, Users, ShoppingCart, Package,
   Factory, Ship, Warehouse, BarChart3, DollarSign,
   Settings, Sprout, Archive, ClipboardCheck,
   UserCircle, Truck, FileText, CalendarRange,
   TrendingUp, Bell, Thermometer,
+  Globe, Target, BookOpen, HeartPulse,
+  Briefcase, FileSignature, Megaphone, Calendar,
+  ClipboardList, FlaskConical, LineChart, Car,
+  Coins, Building2, ChevronDown, ChevronRight,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useUser } from '@/contexts/UserContext';
@@ -57,22 +62,60 @@ const NAV_SECTIONS: NavSection[] = [
   {
     label: 'salesCRM',
     items: [
-      { key: 'sales', icon: BarChart3,  href: '/sales', module: 'daily_sale' },
-      { key: 'crm',   icon: UserCircle, href: '/crm',   module: 'crm' },
+      { key: 'sales',         icon: BarChart3,    href: '/sales',            module: 'daily_sale' },
+      { key: 'crm',           icon: UserCircle,   href: '/crm',              module: 'crm' },
+      { key: 'crmHealth',     icon: HeartPulse,   href: '/crm/health',       module: 'crm' },
+      { key: 'crmOpportunity',icon: Target,       href: '/crm/opportunities',module: 'opportunity' },
+      { key: 'crmVisit',      icon: Briefcase,    href: '/crm/visits',       module: 'visit' },
+      { key: 'crmQuotation',  icon: FileSignature,href: '/crm/quotations',   module: 'quotation' },
     ],
   },
   {
     label: 'financeSection',
     items: [
-      { key: 'cost',    icon: DollarSign, href: '/cost',       module: 'cost_sheet' },
-      { key: 'arAp',    icon: FileText,   href: '/finance',    module: 'ar' },
+      { key: 'cost',          icon: DollarSign,   href: '/cost',             module: 'cost_sheet' },
+      { key: 'arAp',          icon: FileText,     href: '/finance',          module: 'ar' },
+      { key: 'pettyCash',     icon: Coins,        href: '/finance/petty-cash', module: 'ar' },
+      { key: 'bankAccounts',  icon: Building2,    href: '/finance/banks',    module: 'ar' },
+      { key: 'pnlReport',     icon: LineChart,    href: '/finance/pnl',      module: 'ar' },
+    ],
+  },
+  {
+    label: 'tradeSection',
+    items: [
+      { key: 'tradeDocs',     icon: BookOpen,     href: '/trade-docs',       module: 'trade_doc' },
+      { key: 'contracts',     icon: FileSignature,href: '/contracts',        module: 'contract' },
+    ],
+  },
+  {
+    label: 'logisticsSection',
+    items: [
+      { key: 'logistics',     icon: Truck,        href: '/logistics',        module: 'delivery' },
+      { key: 'vehicles',      icon: Car,          href: '/logistics/vehicles',module: 'delivery' },
+      { key: 'returns',       icon: Archive,      href: '/logistics/returns',module: 'delivery' },
+    ],
+  },
+  {
+    label: 'bloombergSection',
+    items: [
+      { key: 'marketPrices',  icon: TrendingUp,   href: '/market/prices',    module: 'market_intel' },
+      { key: 'competitors',   icon: Globe,        href: '/market/competitors',module: 'market_intel' },
+      { key: 'buyers',        icon: Users,        href: '/market/buyers',    module: 'market_intel' },
+    ],
+  },
+  {
+    label: 'orgSection',
+    items: [
+      { key: 'announcements', icon: Megaphone,    href: '/announcements',    module: 'announcement' },
+      { key: 'calendar',      icon: Calendar,     href: '/calendar',         module: 'calendar' },
+      { key: 'meetings',      icon: ClipboardList,href: '/meetings',         module: 'meeting' },
     ],
   },
   {
     label: 'planningSection',
     items: [
-      { key: 'procurement', icon: CalendarRange, href: '/planning',           module: 'plan' },
-      { key: 'dailySummary', icon: Bell,          href: '/daily-summary',     module: 'system' },
+      { key: 'procurement',   icon: CalendarRange,href: '/planning',         module: 'plan' },
+      { key: 'dailySummary',  icon: Bell,         href: '/daily-summary',    module: 'system' },
     ],
   },
 ];
@@ -81,6 +124,7 @@ const SETTINGS_ITEMS = [
   { key: 'users',        href: '/settings/users',         module: 'user' },
   { key: 'roles',        href: '/settings/roles',         module: 'user' },
   { key: 'productTypes', href: '/settings/product-types', module: 'system' },
+  { key: 'kpiDefs',     href: '/settings/kpi',           module: 'system' },
 ];
 
 export default function Sidebar() {
@@ -89,6 +133,13 @@ export default function Sidebar() {
   const pathname = usePathname();
   const cleanPath = pathname.replace(`/${locale}`, '') || '/';
   const { hasPermission } = useUser();
+
+  // 折疊狀態：key 為 section.label，true = 展開（預設全部展開）
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  const toggleSection = useCallback((label: string) => {
+    setCollapsed((prev) => ({ ...prev, [label]: !prev[label] }));
+  }, []);
 
   return (
     <aside className="w-[240px] min-h-screen bg-gray-900 flex flex-col">
@@ -108,15 +159,28 @@ export default function Sidebar() {
           );
           if (visibleItems.length === 0) return null;
 
+          const isCollapsed = section.label ? (collapsed[section.label] ?? false) : false;
+
           return (
             <div key={sIdx}>
-              {/* 區域標題 */}
-              {section.label && (
-                <p className="px-3 mt-4 mb-1.5 text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
-                  {t(section.label as any)}
-                </p>
-              )}
-              {visibleItems.map(({ key, icon: Icon, href }) => {
+              {/* 可折疊區域標題 */}
+              {section.label ? (
+                <button
+                  type="button"
+                  onClick={() => toggleSection(section.label)}
+                  className="w-full flex items-center justify-between px-3 mt-4 mb-1.5 group"
+                >
+                  <span className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider group-hover:text-gray-400 transition-colors">
+                    {t(section.label as any)}
+                  </span>
+                  {isCollapsed
+                    ? <ChevronRight size={11} className="text-gray-700 group-hover:text-gray-500" />
+                    : <ChevronDown size={11} className="text-gray-700 group-hover:text-gray-500" />
+                  }
+                </button>
+              ) : null}
+              {/* 項目列表（折疊時隱藏） */}
+              {!isCollapsed && visibleItems.map(({ key, icon: Icon, href }) => {
                 const isActive = cleanPath === href || (href !== '/' && cleanPath.startsWith(href));
                 return (
                   <Link
@@ -169,7 +233,7 @@ export default function Sidebar() {
 
       {/* 底部版本 */}
       <div className="px-5 py-4 border-t border-gray-800">
-        <p className="text-[11px] text-gray-600">v2.0.0 · Phase 2</p>
+        <p className="text-[11px] text-gray-600">v3.0.0 · Bloomberg</p>
       </div>
     </aside>
   );
