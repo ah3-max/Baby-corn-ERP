@@ -30,7 +30,8 @@ def create_tokens(db: Session, user: User) -> dict:
     注意：只呼叫 flush() 不 commit()，由 caller 統一 commit，
     確保 AuditLog 與 RefreshToken 在同一個 transaction 中。
     """
-    access_token = create_access_token(data={"sub": str(user.id)})
+    tv = user.token_version or 0
+    access_token = create_access_token(data={"sub": str(user.id)}, token_version=tv)
     refresh_token = create_refresh_token(data={"sub": str(user.id)})
 
     # 儲存 Refresh Token
@@ -79,8 +80,9 @@ def refresh_access_token(db: Session, refresh_token: str) -> Optional[dict]:
     # Rotation：廢止舊 token
     db.delete(db_token)
 
-    # 簽發新 Access Token + 新 Refresh Token
-    new_access_token  = create_access_token(data={"sub": str(user.id)})
+    # 簽發新 Access Token + 新 Refresh Token（帶入最新 token_version）
+    tv = user.token_version or 0
+    new_access_token  = create_access_token(data={"sub": str(user.id)}, token_version=tv)
     new_refresh_token = create_refresh_token(data={"sub": str(user.id)})
 
     expires_at = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
@@ -100,7 +102,7 @@ def refresh_access_token(db: Session, refresh_token: str) -> Optional[dict]:
 
 def revoke_refresh_token(db: Session, refresh_token: str) -> bool:
     """
-    撤銷 Refresh Token（登出）。
+    撤銷單一 Refresh Token（登出）。
     只呼叫 flush()，由 caller 統一 commit。
     """
     db_token = db.query(RefreshToken).filter(RefreshToken.token == refresh_token).first()
@@ -109,6 +111,20 @@ def revoke_refresh_token(db: Session, refresh_token: str) -> bool:
         db.flush()
         return True
     return False
+
+
+def revoke_all_tokens(db: Session, user: User) -> None:
+    """
+    撤銷所有 Refresh Token 並遞增 token_version。
+    用於：登出所有裝置、修改密碼、重設密碼、強制踢出。
+
+    token_version +1 後，所有現有的 Access Token 驗證時會因版本不符而失效，
+    即使 Access Token 尚未到期也無法使用（15 分鐘內完全清場）。
+    只呼叫 flush()，由 caller 統一 commit。
+    """
+    db.query(RefreshToken).filter(RefreshToken.user_id == user.id).delete(synchronize_session=False)
+    user.token_version = (user.token_version or 0) + 1
+    db.flush()
 
 
 def get_user_permissions(user: User) -> list[str]:

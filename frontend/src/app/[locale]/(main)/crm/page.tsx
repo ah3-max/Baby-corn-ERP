@@ -4,6 +4,7 @@
  * CRM 管理 — 儀表板 + 活動 + 任務 + 排行
  */
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { UserCircle, Target, ListTodo, Trophy, Plus, Phone, Calendar, X } from 'lucide-react';
 import { crmApi, customersApi } from '@/lib/api';
 import type { Supplier } from '@/types';
@@ -11,6 +12,8 @@ import { useToast } from '@/contexts/ToastContext';
 import { useUser } from '@/contexts/UserContext';
 
 export default function CRMPage() {
+  const t  = useTranslations('crm');
+  const tc = useTranslations('common');
   const { showToast } = useToast();
   const { user } = useUser();
   const [tab, setTab] = useState<'dashboard' | 'activities' | 'tasks' | 'ranking'>('dashboard');
@@ -26,10 +29,10 @@ export default function CRMPage() {
   useEffect(() => { customersApi.list({}).then(r => setCustomers(r.data)).catch(() => {}); }, []);
 
   const TABS = [
-    { key: 'dashboard', label: '業務總覽' },
-    { key: 'activities', label: '活動記錄' },
-    { key: 'tasks', label: '任務看板' },
-    { key: 'ranking', label: '業績排行' },
+    { key: 'dashboard',  label: t('tabs.dashboard') },
+    { key: 'activities', label: t('tabs.activities') },
+    { key: 'tasks',      label: t('tabs.tasks') },
+    { key: 'ranking',    label: t('tabs.ranking') },
   ] as const;
 
   useEffect(() => {
@@ -58,38 +61,38 @@ export default function CRMPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
-        <h1 className="text-2xl font-bold text-gray-800">CRM 管理</h1>
+        <h1 className="text-2xl font-bold text-gray-800">{t('title')}</h1>
         <div className="flex gap-2">
           {tab === 'activities' && (
-            <button onClick={() => setShowActivityForm(true)} className="btn-primary flex items-center gap-2"><Plus size={16} /> 新增活動</button>
+            <button onClick={() => setShowActivityForm(true)} className="btn-primary flex items-center gap-2"><Plus size={16} /> {t('addActivity')}</button>
           )}
           {tab === 'tasks' && (
-            <button onClick={() => setShowTaskForm(true)} className="btn-primary flex items-center gap-2"><Plus size={16} /> 指派任務</button>
+            <button onClick={() => setShowTaskForm(true)} className="btn-primary flex items-center gap-2"><Plus size={16} /> {t('assignTask')}</button>
           )}
         </div>
       </div>
 
       {/* Tab */}
       <div className="flex gap-1 mb-5 bg-gray-100 p-1 rounded-lg w-fit">
-        {TABS.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === t.key ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-            {t.label}
+        {TABS.map(tb => (
+          <button key={tb.key} onClick={() => setTab(tb.key)}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === tb.key ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+            {tb.label}
           </button>
         ))}
       </div>
 
-      {loading ? <div className="text-center py-16 text-gray-400">載入中...</div> : (
+      {loading ? <div className="text-center py-16 text-gray-400">{tc('loading')}</div> : (
         <>
           {/* 業務總覽 */}
           {tab === 'dashboard' && dashboard && (
             <div>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 {[
-                  { label: '本月營收 (TWD)', value: `$${(dashboard.total_revenue_twd || 0).toLocaleString()}`, icon: Target, color: 'blue' },
-                  { label: '已確認收款', value: `$${(dashboard.confirmed_payments_twd || 0).toLocaleString()}`, icon: Target, color: 'green' },
-                  { label: '活躍客戶', value: dashboard.active_customers, icon: UserCircle, color: 'purple' },
-                  { label: '待完成任務', value: dashboard.pending_tasks, icon: ListTodo, color: 'orange' },
+                  { label: t('monthlyRevenue'),    value: `$${(dashboard.total_revenue_twd || 0).toLocaleString()}`, icon: Target,    color: 'blue' },
+                  { label: t('confirmedPayments'), value: `$${(dashboard.confirmed_payments_twd || 0).toLocaleString()}`, icon: Target, color: 'green' },
+                  { label: t('activeCustomers'),   value: dashboard.active_customers, icon: UserCircle, color: 'purple' },
+                  { label: t('pendingTasks'),       value: dashboard.pending_tasks,    icon: ListTodo,   color: 'orange' },
                 ].map((card, i) => (
                   <div key={i} className="card p-4">
                     <div className="flex items-center gap-3">
@@ -106,11 +109,11 @@ export default function CRMPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="card p-4">
-                  <p className="text-sm text-gray-500">本月新客戶</p>
+                  <p className="text-sm text-gray-500">{t('newCustomers')}</p>
                   <p className="text-2xl font-bold text-gray-800">{dashboard.new_customers}</p>
                 </div>
                 <div className="card p-4">
-                  <p className="text-sm text-gray-500">本月拜訪次數</p>
+                  <p className="text-sm text-gray-500">{t('activityCount')}</p>
                   <p className="text-2xl font-bold text-gray-800">{dashboard.activity_count}</p>
                 </div>
               </div>
@@ -120,7 +123,7 @@ export default function CRMPage() {
           {/* 活動記錄 */}
           {tab === 'activities' && (
             <div className="space-y-3">
-              {activities.length === 0 ? <p className="text-gray-400 text-center py-10">尚無活動記錄</p> : activities.map((a: any) => (
+              {activities.length === 0 ? <p className="text-gray-400 text-center py-10">{t('noActivities')}</p> : activities.map((a: any) => (
                 <div key={a.id} className="card p-4">
                   <div className="flex items-center justify-between">
                     <div>
@@ -130,7 +133,7 @@ export default function CRMPage() {
                         a.activity_type === 'call' ? 'bg-green-100 text-green-700' :
                         a.activity_type === 'complaint' ? 'bg-red-100 text-red-700' :
                         'bg-gray-100 text-gray-700'
-                      }`}>{a.activity_type}</span>
+                      }`}>{t(`activityTypes.${a.activity_type}` as any) || a.activity_type}</span>
                     </div>
                     <span className="text-xs text-gray-400">{new Date(a.activity_date).toLocaleDateString()}</span>
                   </div>
@@ -141,7 +144,7 @@ export default function CRMPage() {
                   {a.summary && <p className="mt-1 text-sm text-gray-500">{a.summary}</p>}
                   {a.follow_up_date && (
                     <div className="mt-2 flex items-center gap-1 text-xs text-orange-600">
-                      <Calendar size={12} /> 跟進：{a.follow_up_date} {a.follow_up_action || ''}
+                      <Calendar size={12} /> {t('followUp')}{a.follow_up_date} {a.follow_up_action || ''}
                     </div>
                   )}
                 </div>
@@ -152,24 +155,24 @@ export default function CRMPage() {
           {/* 任務看板 */}
           {tab === 'tasks' && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {['pending', 'in_progress', 'completed'].map(status => (
+              {(['pending', 'in_progress', 'completed'] as const).map(status => (
                 <div key={status}>
                   <h3 className="text-sm font-semibold text-gray-500 mb-3 uppercase">
-                    {status === 'pending' ? '待處理' : status === 'in_progress' ? '進行中' : '已完成'}
-                    <span className="ml-1 text-gray-400">({tasks.filter((t: any) => t.status === status).length})</span>
+                    {t(`taskStatus.${status}`)}
+                    <span className="ml-1 text-gray-400">({tasks.filter((tk: any) => tk.status === status).length})</span>
                   </h3>
                   <div className="space-y-2">
-                    {tasks.filter((t: any) => t.status === status).map((t: any) => (
-                      <div key={t.id} className={`card p-3 border-l-4 ${
-                        t.priority === 'urgent' ? 'border-red-500' :
-                        t.priority === 'high' ? 'border-orange-500' :
-                        t.priority === 'normal' ? 'border-blue-500' : 'border-gray-300'
+                    {tasks.filter((tk: any) => tk.status === status).map((tk: any) => (
+                      <div key={tk.id} className={`card p-3 border-l-4 ${
+                        tk.priority === 'urgent' ? 'border-red-500' :
+                        tk.priority === 'high' ? 'border-orange-500' :
+                        tk.priority === 'normal' ? 'border-blue-500' : 'border-gray-300'
                       }`}>
-                        <p className="text-sm font-medium text-gray-800">{t.title}</p>
+                        <p className="text-sm font-medium text-gray-800">{tk.title}</p>
                         <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
-                          <span>{t.assignee_name}</span>
-                          {t.customer_name && <span>· {t.customer_name}</span>}
-                          {t.due_date && <span>· {t.due_date}</span>}
+                          <span>{tk.assignee_name}</span>
+                          {tk.customer_name && <span>· {tk.customer_name}</span>}
+                          {tk.due_date && <span>· {tk.due_date}</span>}
                         </div>
                       </div>
                     ))}
@@ -182,7 +185,7 @@ export default function CRMPage() {
           {/* 業績排行 */}
           {tab === 'ranking' && ranking && (
             <div className="card p-5">
-              <h3 className="font-semibold text-gray-800 mb-4">{ranking.month} 業務排行</h3>
+              <h3 className="font-semibold text-gray-800 mb-4">{t('monthRanking', { month: ranking.month })}</h3>
               <div className="space-y-3">
                 {(ranking.ranking || []).map((r: any) => (
                   <div key={r.user_id} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
@@ -218,7 +221,7 @@ export default function CRMPage() {
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-gray-800">新增活動</h3>
+              <h3 className="font-bold text-gray-800">{t('addActivityTitle')}</h3>
               <button onClick={() => setShowActivityForm(false)}><X size={18} className="text-gray-400" /></button>
             </div>
             <form onSubmit={async (e) => {
@@ -231,25 +234,25 @@ export default function CRMPage() {
                   summary: fd.get('summary'),
                 });
                 setShowActivityForm(false);
-                setTab('activities'); // 刷新
+                setTab('activities');
                 const { data } = await crmApi.listActivities({});
                 setActivities(data);
-                showToast('活動已建立', 'success');
-              } catch { showToast('建立失敗', 'error'); }
+                showToast(t('activityCreated'), 'success');
+              } catch { showToast(t('activityFailed'), 'error'); }
             }} className="space-y-3">
               <select name="customer_id" required className="input w-full">
-                <option value="">選擇客戶</option>
+                <option value="">{t('selectCustomer')}</option>
                 {customers.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
               <select name="activity_type" className="input w-full">
-                {['visit','call','email','meeting','sample','complaint'].map(t => (
-                  <option key={t} value={t}>{t === 'visit' ? '拜訪' : t === 'call' ? '電話' : t === 'email' ? '郵件' : t === 'meeting' ? '會議' : t === 'sample' ? '送樣' : '客訴'}</option>
+                {(['visit','call','email','meeting','sample','complaint'] as const).map(type => (
+                  <option key={type} value={type}>{t(`activityTypes.${type}`)}</option>
                 ))}
               </select>
-              <textarea name="summary" placeholder="活動摘要" className="input w-full h-20 resize-none" />
+              <textarea name="summary" placeholder={t('activitySummaryPlaceholder')} className="input w-full h-20 resize-none" />
               <div className="flex gap-2">
-                <button type="button" onClick={() => setShowActivityForm(false)} className="btn-secondary flex-1">取消</button>
-                <button type="submit" className="btn-primary flex-1">建立</button>
+                <button type="button" onClick={() => setShowActivityForm(false)} className="btn-secondary flex-1">{tc('cancel')}</button>
+                <button type="submit" className="btn-primary flex-1">{t('createBtn')}</button>
               </div>
             </form>
           </div>
@@ -261,7 +264,7 @@ export default function CRMPage() {
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-gray-800">指派任務</h3>
+              <h3 className="font-bold text-gray-800">{t('assignTaskTitle')}</h3>
               <button onClick={() => setShowTaskForm(false)}><X size={18} className="text-gray-400" /></button>
             </div>
             <form onSubmit={async (e) => {
@@ -280,31 +283,31 @@ export default function CRMPage() {
                 setTab('tasks');
                 const { data } = await crmApi.listTasks({});
                 setTasks(data);
-                showToast('任務已指派', 'success');
-              } catch { showToast('指派失敗', 'error'); }
+                showToast(t('taskAssigned'), 'success');
+              } catch { showToast(t('taskFailed'), 'error'); }
             }} className="space-y-3">
-              <input name="assigned_to" placeholder="指派給（User ID）" required className="input w-full" />
-              <input name="title" placeholder="任務標題 *" required className="input w-full" />
+              <input name="assigned_to" placeholder={t('assignToPlaceholder')} required className="input w-full" />
+              <input name="title" placeholder={t('taskTitlePlaceholder')} required className="input w-full" />
               <div className="grid grid-cols-2 gap-3">
                 <select name="task_type" className="input">
-                  {['follow_up','visit','collection','delivery','sample','other'].map(t => (
-                    <option key={t} value={t}>{t === 'follow_up' ? '跟進' : t === 'visit' ? '拜訪' : t === 'collection' ? '收款' : t === 'delivery' ? '送貨' : t === 'sample' ? '送樣' : '其他'}</option>
+                  {(['follow_up','visit','collection','delivery','sample','other'] as const).map(type => (
+                    <option key={type} value={type}>{t(`taskTypes.${type}`)}</option>
                   ))}
                 </select>
                 <select name="priority" className="input">
-                  {['urgent','high','normal','low'].map(p => (
-                    <option key={p} value={p}>{p === 'urgent' ? '緊急' : p === 'high' ? '高' : p === 'normal' ? '一般' : '低'}</option>
+                  {(['urgent','high','normal','low'] as const).map(p => (
+                    <option key={p} value={p}>{t(`priority.${p}`)}</option>
                   ))}
                 </select>
               </div>
               <select name="customer_id" className="input w-full">
-                <option value="">關聯客戶（選填）</option>
+                <option value="">{t('optionalCustomer')}</option>
                 {customers.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
               <input name="due_date" type="date" className="input w-full" />
               <div className="flex gap-2">
-                <button type="button" onClick={() => setShowTaskForm(false)} className="btn-secondary flex-1">取消</button>
-                <button type="submit" className="btn-primary flex-1">指派</button>
+                <button type="button" onClick={() => setShowTaskForm(false)} className="btn-secondary flex-1">{tc('cancel')}</button>
+                <button type="submit" className="btn-primary flex-1">{t('assignBtn')}</button>
               </div>
             </form>
           </div>

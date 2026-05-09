@@ -43,6 +43,8 @@ class PurchaseOrder(Base):
 
     note              = Column(Text, nullable=True)                             # 採購備註
     created_by        = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    updated_by        = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)   # 最後更新者
+    deleted_at        = Column(DateTime, nullable=True)                                      # 軟刪除時間
     created_at        = Column(DateTime, default=datetime.utcnow)
     updated_at        = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -51,3 +53,4 @@ class PurchaseOrder(Base):
     source_farmer  = relationship("Supplier", foreign_keys=[source_farmer_id])
     product_type   = relationship("ProductType", foreign_keys=[product_type_id])
     creator        = relationship("User", foreign_keys=[created_by])
+    updater        = relationship("User", foreign_keys=[updated_by])

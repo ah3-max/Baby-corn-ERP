@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     # JWT 設定（必填，無預設值）
     SECRET_KEY: str                     # 無預設值，必須在 .env 設定
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15   # 15 分鐘短效（搭配 token_version 防舊 Token 重用）
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # CORS（多個來源用逗號分隔）
@@ -35,8 +35,8 @@ class Settings(BaseSettings):
     # 備份設定
     BACKUP_KEEP_DAYS: int = 7
 
-    # 敏感欄位加密（Fernet，44 字元 base64url；留空則不加密）
-    # 產生方式：python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    # 敏感欄位加密（AES-256-GCM，64 字元 hex = 32 bytes；留空則不加密）
+    # 產生方式：python -c "import secrets; print(secrets.token_hex(32))"
     ENCRYPTION_KEY: str = ""
 
     # Email 設定（SMTP，選填）

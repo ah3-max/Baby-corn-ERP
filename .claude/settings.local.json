@@ -15,7 +15,24 @@
       "Bash(curl -s -L http://localhost:3000)",
       "Bash(docker exec:*)",
       "Bash(curl:*)",
-      "Bash(python3 -m json.tool)"
+      "Bash(python3 -m json.tool)",
+      "Bash(python3:*)",
+      "Bash(chmod +x /tmp/analyze_pages.sh)",
+      "Bash(/tmp/analyze_pages.sh)",
+      "Bash(cat:*)",
+      "Bash(git diff:*)",
+      "Bash(grep:*)",
+      "Bash(ls frontend/src/app/[locale]/\\\\\\(main\\\\\\)/)",
+      "Bash(ls frontend/src/app/[locale]/\\\\\\(main\\\\\\)/calendar)",
+      "Bash(ls frontend/src/app/[locale]/\\\\\\(main\\\\\\)/crm/health)",
+      "Bash(ls frontend/src/app/[locale]/\\\\\\(main\\\\\\)/crm/opportunities)",
+      "Bash(ls frontend/src/app/[locale]/\\\\\\(main\\\\\\)/crm/visits)",
+      "Bash(ls frontend/src/app/[locale]/\\\\\\(main\\\\\\)/crm/quotations)",
+      "Bash(ls frontend/src/app/[locale]/\\\\\\(main\\\\\\)/finance/petty-cash)",
+      "Bash(ls frontend/src/app/[locale]/\\\\\\(main\\\\\\)/finance/banks)",
+      "Bash(ls frontend/src/app/[locale]/\\\\\\(main\\\\\\)/finance/pnl)",
+      "Bash(ls frontend/src/app/[locale]/\\\\\\(main\\\\\\)/logistics/vehicles)",
+      "Bash(ls frontend/src/app/[locale]/\\\\\\(main\\\\\\)/logistics/returns)"
     ]
   }
 }

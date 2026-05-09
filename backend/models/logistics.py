@@ -38,6 +38,7 @@ class Driver(Base):
     max_load_kg   = Column(Numeric(10, 2), nullable=True)  # 最大載重
     is_active     = Column(Boolean, default=True, nullable=False)
     note          = Column(Text, nullable=True)
+    deleted_at    = Column(DateTime, nullable=True)   # 軟刪除
     created_at    = Column(DateTime, default=datetime.utcnow)
     updated_at    = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -99,6 +100,8 @@ class DeliveryOrder(Base):
 
     driver_note           = Column(Text, nullable=True)
     created_by            = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    updated_by            = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    deleted_at            = Column(DateTime, nullable=True)   # 軟刪除
     created_at            = Column(DateTime, default=datetime.utcnow)
     updated_at            = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -186,6 +189,8 @@ class OutboundOrder(Base):
     shipped_at        = Column(DateTime, nullable=True)
     note              = Column(Text, nullable=True)
     created_by        = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    updated_by        = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    deleted_at        = Column(DateTime, nullable=True)   # 軟刪除
     created_at        = Column(DateTime, default=datetime.utcnow)
     updated_at        = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

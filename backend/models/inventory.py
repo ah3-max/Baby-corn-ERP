@@ -26,6 +26,15 @@ class Warehouse(Base):
     address    = Column(Text, nullable=True)
     notes      = Column(Text, nullable=True)
     is_active  = Column(Boolean, default=True, nullable=False)
+    # ── B-06 冷鏈欄位 ──────────────────────────────────────────────────
+    storage_type        = Column(String(20), nullable=True)       # frozen/chilled/ambient
+    temperature_min     = Column(Numeric(5, 2), nullable=True)    # 最低儲存溫度 °C
+    temperature_max     = Column(Numeric(5, 2), nullable=True)    # 最高儲存溫度 °C
+    humidity_min        = Column(Numeric(5, 2), nullable=True)    # 最低濕度 %
+    humidity_max        = Column(Numeric(5, 2), nullable=True)    # 最高濕度 %
+    total_capacity_pallets = Column(Integer, nullable=True)       # 總托盤容量
+    country_code        = Column(String(2), default="TW", nullable=False)  # 倉庫所在國家
+    deleted_at = Column(DateTime, nullable=True)                           # 軟刪除時間
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -94,7 +103,15 @@ class InventoryLot(Base):
     import_tax_twd         = Column(Numeric(10, 2), nullable=True)  # 關稅（TWD）
     cold_chain_fee_twd     = Column(Numeric(10, 2), nullable=True)  # 冷鏈物流費（TWD）
     tw_transport_fee_twd   = Column(Numeric(10, 2), nullable=True)  # 台灣內陸運費（TWD）
+    # ── B-06 冷鏈到貨欄位 ─────────────────────────────────────────────
+    actual_temp_on_arrival = Column(Numeric(5, 2), nullable=True)     # 到貨時實測溫度 °C
+    humidity_on_arrival    = Column(Numeric(5, 2), nullable=True)     # 到貨時濕度 %
+    expiry_date            = Column(Date, nullable=True)               # 有效期限
+    quality_status         = Column(String(20), default="approved", nullable=True)  # approved/on_hold/rejected/quarantine
+
     created_by         = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    updated_by         = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)  # 最後更新者
+    deleted_at         = Column(DateTime, nullable=True)                                     # 軟刪除時間
     created_at         = Column(DateTime, default=datetime.utcnow)
     updated_at         = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

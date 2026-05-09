@@ -40,6 +40,15 @@ def get_current_user(
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="使用者不存在或已停用")
 
+    # 驗證 token_version（登出/改密碼後舊 Token 自動失效）
+    token_tv = payload.get("tv", 0)
+    if token_tv != (user.token_version or 0):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token 已失效，請重新登入",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     return user
 
 

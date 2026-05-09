@@ -31,15 +31,24 @@ class Supplier(Base):
     district        = Column(String(50), nullable=True)               # 區域
     address         = Column(Text, nullable=True)                     # 地址
     payment_terms   = Column(String(100), nullable=True)              # 付款條件
+    payment_currency = Column(String(3), default="THB", nullable=False)  # 付款幣別（THB/TWD/USD）
     bank_account    = Column(EncryptedString, nullable=True)           # 銀行帳戶（加密儲存）
+    bank_swift_code = Column(String(20), nullable=True)               # SWIFT/BIC 代碼
+    # ── 全球化欄位（B-03）────────────────────────────────────────────────
+    country_code    = Column(String(2), default="TH", nullable=False)  # ISO 3166-1 alpha-2（TH/TW/VN/CN...）
+    tax_id          = Column(EncryptedString, nullable=True)            # 稅務登記號（加密儲存）
+    vat_no          = Column(String(50), nullable=True)                # VAT 登記號（泰國 e.g. 0105xxxxx）
+    email           = Column(String(200), nullable=True)               # 電子信箱
     gap_cert_no     = Column(String(50), nullable=True)               # GAP 認證號碼
     gap_cert_expiry = Column(Date, nullable=True)                     # GAP 認證到期日
     note            = Column(Text, nullable=True)                     # 備註
     is_active       = Column(Boolean, default=True, nullable=False)   # 啟用狀態
     deleted_at      = Column(DateTime, nullable=True)                 # 軟刪除時間
     created_by      = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    updated_by      = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)   # 最後更新者
     created_at      = Column(DateTime, default=datetime.utcnow)
     updated_at      = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # 關聯
     creator = relationship("User", foreign_keys=[created_by])
+    updater = relationship("User", foreign_keys=[updated_by])

@@ -19,9 +19,15 @@ class Notification(Base):
     """
     __tablename__ = "notifications"
     __table_args__ = (
+        # D-05：擴充 notification_type 清單（涵蓋所有業務通知）
         CheckConstraint(
-            "notification_type IN ('stock_age_warning','stock_age_critical',"
-            "'pending_shipment','pending_payment','cost_incomplete','qc_required')",
+            "notification_type IN ("
+            "'stock_age_warning','stock_age_critical',"
+            "'pending_shipment','pending_payment','cost_incomplete','qc_required',"
+            "'system_alert','sales_alert','finance_alert','logistics_alert',"
+            "'quality_alert','hr_alert','crm_alert','market_alert',"
+            "'new_order','order_status_change','ar_overdue','ap_due',"
+            "'batch_expired','low_stock','churn_risk','kpi_milestone')",
             name="ck_notifications_type",
         ),
         # 未讀通知的部分索引，加速查詢
@@ -39,6 +45,7 @@ class Notification(Base):
     message             = Column(JSON, nullable=True)                         # 結構化內容
     is_read             = Column(Boolean, default=False, nullable=False)      # 是否已讀
     read_at             = Column(DateTime, nullable=True)                     # 已讀時間
+    deleted_at          = Column(DateTime, nullable=True)                     # 軟刪除
     created_at          = Column(DateTime, default=datetime.utcnow)
     expires_at          = Column(DateTime, nullable=True)                     # 過期時間
 

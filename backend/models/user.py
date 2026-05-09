@@ -5,7 +5,7 @@
 import uuid
 from datetime import datetime
 from sqlalchemy import (
-    Column, String, Boolean, DateTime, Text,
+    Column, String, Boolean, DateTime, Text, Integer, Numeric,
     ForeignKey, UniqueConstraint
 )
 from sqlalchemy.dialects.postgresql import UUID
@@ -76,13 +76,22 @@ class User(Base):
     role_id = Column(UUID(as_uuid=True), ForeignKey("roles.id"), nullable=True)  # 所屬角色
     preferred_language = Column(String(5), default="zh-TW")          # 偏好語言：zh-TW / en / th
     is_active = Column(Boolean, default=True, nullable=False)         # 是否啟用
+    token_version = Column(Integer, default=0, nullable=False)        # Token 版本號，登出/改密碼時 +1，使所有舊 Token 失效
+    # ── C-06 HR 組織欄位 ────────────────────────────────────────────
+    employee_level    = Column(String(20), nullable=True)             # junior/mid/senior/lead/manager/director/vp/c_level
+    department_id     = Column(UUID(as_uuid=True), ForeignKey("departments.id"), nullable=True)  # 所屬部門
+    reports_to_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)       # 直屬主管
+    job_title         = Column(String(100), nullable=True)            # 職稱
+    commission_rate   = Column(Numeric(5, 2), default=0, nullable=True)  # 業務佣金比例 %
     note = Column(Text, nullable=True)                                # 備註
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # 關聯
-    role = relationship("Role", back_populates="users")
+    role           = relationship("Role", back_populates="users")
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
+    department     = relationship("Department", foreign_keys=[department_id])
+    reports_to     = relationship("User", foreign_keys=[reports_to_user_id], remote_side="User.id")
 
 
 class RefreshToken(Base):

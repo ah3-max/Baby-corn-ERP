@@ -23,16 +23,25 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(
+    data: dict,
+    expires_delta: Optional[timedelta] = None,
+    token_version: int = 0,
+) -> str:
     """
-    建立 JWT Access Token
-    預設有效時間為設定檔的 ACCESS_TOKEN_EXPIRE_MINUTES
+    建立 JWT Access Token（15 分鐘有效期，含 token_version 防舊 Token 重用）
+
+    Args:
+        data:          JWT payload（至少含 "sub" user_id）
+        expires_delta: 自訂有效期，None 使用設定檔預設（建議 15 分鐘）
+        token_version: User.token_version，寫入 payload "tv" 欄位
+                       驗證端比對此值，登出/改密碼後舊 Token 自動失效
     """
     to_encode = data.copy()
     expire = datetime.utcnow() + (
         expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
-    to_encode.update({"exp": expire, "type": "access"})
+    to_encode.update({"exp": expire, "type": "access", "tv": token_version})
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 

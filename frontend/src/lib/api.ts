@@ -487,3 +487,123 @@ export const dailySummaryApi = {
   updateAlertRule: (id: string, data: object) => apiClient.put(`/alert-rules/${id}`, data),
   deleteAlertRule: (id: string) => apiClient.delete(`/alert-rules/${id}`),
 };
+
+// ─── Bloomberg 段：市場情報 API ────────────────────────────
+
+export const marketIntelApi = {
+  // 市場價格
+  listPrices:       (params?: object) => apiClient.get('/market/prices/', { params }),
+  createPrice:      (data: object)    => apiClient.post('/market/prices/', data),
+  // 告警
+  listAlerts:       (params?: object) => apiClient.get('/market/alerts/', { params }),
+  acknowledgeAlert: (id: string)      => apiClient.post(`/market/alerts/${id}/acknowledge`),
+  // 運費指數
+  listFreight:      (params?: object) => apiClient.get('/market/freight/', { params }),
+  createFreight:    (data: object)    => apiClient.post('/market/freight/', data),
+  // 全球買家
+  listBuyers:       (params?: object) => apiClient.get('/market/buyers/', { params }),
+  createBuyer:      (data: object)    => apiClient.post('/market/buyers/', data),
+  // 競爭對手
+  listCompetitors:  (params?: object) => apiClient.get('/market/competitors/', { params }),
+  createCompetitor: (data: object)    => apiClient.post('/market/competitors/', data),
+  listCompetitorPrices: (params?: object) => apiClient.get('/market/competitor-prices/', { params }),
+};
+
+// ─── N 段：動態定價 API ────────────────────────────────────
+
+export const pricingApi = {
+  calculate:        (data: object)    => apiClient.post('/pricing/calculate', data),
+  listPriceLists:   (params?: object) => apiClient.get('/pricing/price-lists', { params }),
+  createPriceList:  (data: object)    => apiClient.post('/pricing/price-lists', data),
+  getPriceList:     (id: string)      => apiClient.get(`/pricing/price-lists/${id}`),
+  updatePriceList:  (id: string, data: object) => apiClient.put(`/pricing/price-lists/${id}`, data),
+  listRules:        (params?: object) => apiClient.get('/pricing/rules', { params }),
+  createRule:       (data: object)    => apiClient.post('/pricing/rules', data),
+};
+
+// ─── G 段：貿易文件 API ────────────────────────────────────
+
+export const tradeDocsApi = {
+  list:          (params?: object) => apiClient.get('/trade-documents/', { params }),
+  create:        (data: object)    => apiClient.post('/trade-documents/', data),
+  get:           (id: string)      => apiClient.get(`/trade-documents/${id}`),
+  update:        (id: string, data: object) => apiClient.patch(`/trade-documents/${id}`, data),
+  expiryAlerts:  (days?: number)   => apiClient.get('/trade-documents/expiry-alerts', { params: days ? { days } : {} }),
+  // 信用狀
+  listLC:        (params?: object) => apiClient.get('/trade-documents/letters-of-credit', { params }),
+  createLC:      (data: object)    => apiClient.post('/trade-documents/letters-of-credit', data),
+  // 提單
+  listBL:        (params?: object) => apiClient.get('/trade-documents/bills-of-lading', { params }),
+  createBL:      (data: object)    => apiClient.post('/trade-documents/bills-of-lading', data),
+};
+
+// ─── I 段：財務擴充 API ────────────────────────────────────
+
+export const financeExtApi = {
+  // 損益報表
+  getPnl:           (year: number, month: number) => apiClient.get('/finance/pnl', { params: { year, month } }),
+  getPnlTrend:      (months?: number) => apiClient.get('/finance/pnl/monthly-trend', { params: months ? { months } : {} }),
+  getFxGainLoss:    (params?: object) => apiClient.get('/finance/fx-gain-loss', { params }),
+  thaiTax:          (amount_thb: number) => apiClient.get('/finance/thai-tax', { params: { amount_thb } }),
+  whtReport:        (params?: object) => apiClient.get('/finance/wht-report', { params }),
+  // 零用金
+  listPettyCashFunds:   (params?: object) => apiClient.get('/finance/petty-cash/funds', { params }),
+  listPettyCashRecords: (params?: object) => apiClient.get('/finance/petty-cash/records', { params }),
+  createPettyCashRecord:(data: object)    => apiClient.post('/finance/petty-cash/records', data),
+  approvePettyCash:     (id: string)      => apiClient.post(`/finance/petty-cash/records/${id}/approve`),
+  // 銀行帳戶
+  listBankAccounts:     (params?: object) => apiClient.get('/finance/bank-accounts', { params }),
+  listBankTransactions: (params?: object) => apiClient.get('/finance/bank-transactions', { params }),
+};
+
+// ─── J/K/L 段：合規管理 API ──────────────────────────────
+
+export const complianceApi = {
+  // 合約
+  listContracts:    (params?: object) => apiClient.get('/compliance/contracts', { params }),
+  createContract:   (data: object)    => apiClient.post('/compliance/contracts', data),
+  getContract:      (id: string)      => apiClient.get(`/compliance/contracts/${id}`),
+  // 公告
+  listAnnouncements:(params?: object) => apiClient.get('/compliance/announcements', { params }),
+  createAnnouncement:(data: object)   => apiClient.post('/compliance/announcements', data),
+  // 會議記錄
+  listMeetings:     (params?: object) => apiClient.get('/compliance/meetings', { params }),
+  createMeeting:    (data: object)    => apiClient.post('/compliance/meetings', data),
+  getMeeting:       (id: string)      => apiClient.get(`/compliance/meetings/${id}`),
+  getMeetingActions:(id: string)      => apiClient.get(`/compliance/meetings/${id}/actions`),
+};
+
+// ─── H 段：物流擴充 API ───────────────────────────────────
+
+export const logisticsExtApi = {
+  // 車輛
+  listVehicles:     (params?: object) => apiClient.get('/logistics/vehicles', { params }),
+  createVehicle:    (data: object)    => apiClient.post('/logistics/vehicles', data),
+  getVehicle:       (id: string)      => apiClient.get(`/logistics/vehicles/${id}`),
+  updateVehicle:    (id: string, data: object) => apiClient.patch(`/logistics/vehicles/${id}`, data),
+  listMaintenance:  (params?: object) => apiClient.get('/logistics/vehicle-maintenance', { params }),
+  createMaintenance:(data: object)    => apiClient.post('/logistics/vehicle-maintenance', data),
+  // 退貨
+  listReturns:      (params?: object) => apiClient.get('/logistics/returns', { params }),
+  createReturn:     (data: object)    => apiClient.post('/logistics/returns', data),
+  updateReturn:     (id: string, data: object) => apiClient.patch(`/logistics/returns/${id}`, data),
+};
+
+// ─── CRM 進階 API ─────────────────────────────────────────
+
+export const crmAdvancedApi = {
+  // 業務排程
+  listSchedules:    (params?: object) => apiClient.get('/crm/schedules', { params }),
+  createSchedule:   (data: object)    => apiClient.post('/crm/schedules', data),
+  updateSchedule:   (id: string, data: object) => apiClient.patch(`/crm/schedules/${id}`, data),
+  // 商機
+  listOpportunities:(params?: object) => apiClient.get('/crm/opportunities', { params }),
+  createOpportunity:(data: object)    => apiClient.post('/crm/opportunities', data),
+  updateOpportunity:(id: string, data: object) => apiClient.patch(`/crm/opportunities/${id}`, data),
+  // 報價核准
+  listApprovals:    (params?: object) => apiClient.get('/crm/quotation-approvals', { params }),
+  decideApproval:   (id: string, data: object) => apiClient.post(`/crm/quotation-approvals/${id}/decide`, data),
+  // 健康告警
+  healthAlerts:     (params?: object) => apiClient.get('/crm/alerts/health-score', { params }),
+  churnAlerts:      (params?: object) => apiClient.get('/crm/alerts/churn', { params }),
+};

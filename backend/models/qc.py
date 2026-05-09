@@ -57,7 +57,14 @@ class QCRecord(Base):
     photo_count      = Column(Integer, default=0)                                # 關聯照片數
 
     notes            = Column(Text, nullable=True)                               # 備註
+    # ── B-05 認證標準欄位 ─────────────────────────────────────────────
+    certification_standard = Column(String(50), nullable=True)          # ISO22000/HACCP/BRC/IFS/ORGANIC
+    heavy_metal_test       = Column(JSON, nullable=True)                 # 重金屬檢驗結果 JSON
+    microbial_test         = Column(JSON, nullable=True)                 # 微生物檢驗結果 JSON
+
     created_by       = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    updated_by       = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    deleted_at       = Column(DateTime, nullable=True)
     created_at       = Column(DateTime, default=datetime.utcnow)
     updated_at       = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

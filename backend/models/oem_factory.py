@@ -4,7 +4,7 @@ OEM 加工廠模型
 """
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, Text, Numeric, Boolean
+from sqlalchemy import Column, String, DateTime, Date, Text, Numeric, Boolean, Integer
 from sqlalchemy.dialects.postgresql import UUID
 
 from database import Base
@@ -29,6 +29,15 @@ class OEMFactory(Base):
     gmp_cert_no             = Column(String(50), nullable=True)                 # GMP 認證號碼
     processing_fee_per_kg   = Column(Numeric(8, 2), nullable=True)             # 預設加工費 THB/kg
     notes                   = Column(Text, nullable=True)                       # 備註
+    # ── B-05 認證欄位 ─────────────────────────────────────────────────
+    country_code            = Column(String(2), default="TH", nullable=False)  # 工廠所在國家
+    haccp_cert_no           = Column(String(50), nullable=True)                # HACCP 認證號碼
+    haccp_cert_expiry       = Column(Date, nullable=True)                      # HACCP 認證到期日
+    iso22000_cert_no        = Column(String(50), nullable=True)                # ISO22000 認證號碼
+    capacity_per_day_kg     = Column(Numeric(10, 2), nullable=True)            # 日產能（kg）
+    lead_time_days          = Column(Integer, nullable=True)                   # 生產前置時間（天）
+
     is_active               = Column(Boolean, default=True, nullable=False)
+    deleted_at              = Column(DateTime, nullable=True)
     created_at              = Column(DateTime, default=datetime.utcnow)
     updated_at              = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

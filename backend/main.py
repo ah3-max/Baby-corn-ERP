@@ -1,42 +1,23 @@
 """
 FastAPI 應用程式入口
 """
-import logging
-import logging.config
+import os
 from pathlib import Path
 from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from sqlalchemy.exc import IntegrityError, OperationalError, DataError
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-# ─── Logging 設定 ────────────────────────────────────────
-logging.config.dictConfig({
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "default": {
-            "format": "%(asctime)s %(levelname)s %(name)s %(message)s",
-        },
-    },
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-            "formatter": "default",
-        },
-    },
-    "root": {
-        "handlers": ["console"],
-        "level": "INFO",
-    },
-    "loggers": {
-        "erp.access": {"level": "INFO", "propagate": True},
-        "sqlalchemy.engine": {"level": "WARNING", "propagate": True},  # 靜音 SQL 查詢
-    },
-})
+# ─── Structlog JSON Logger 設定（必須最先初始化）────────────
+from utils.logger import setup_logging, get_logger
 
-logger = logging.getLogger(__name__)
+_json_logs = os.getenv("LOG_FORMAT", "json").lower() != "console"
+setup_logging(json_logs=_json_logs, log_level=os.getenv("LOG_LEVEL", "INFO"))
+
+logger = get_logger(__name__)
 
 from routers import (
     auth, users, roles, suppliers, purchases, batches, qc, shipments,
@@ -50,6 +31,13 @@ from routers import (
     inventory_analytics,  # WP6：庫存分析
     planning,  # WP7：計劃
     daily_summary,  # WP8：每日摘要
+    crm_advanced,  # E-F：CRM 進階（健康分、預測、機會、拜訪、報價、樣品）
+    trade_docs,       # G：國際貿易文件（貿易文件總表、L/C、CO、裝箱單、提單）
+    financial_report, # I-08/I-09：跨幣別損益表、泰國稅務
+    pricing,          # M/N：市場情報 + 定價引擎
+    compliance_mgmt,  # J/K/L/O：合約、公告、會議、KPI
+    logistics_ext,    # H：車輛、保養、退貨
+    finance_ext_routes, # I-04/05/06/07：零用金、銀行
 )
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -59,6 +47,7 @@ from config import settings
 from database import Base, engine, get_db
 from migrations import run_migrations
 from utils.limiter import limiter
+from utils.db_errors import handle_db_error
 from middleware.request_id import RequestIDMiddleware
 import models  # noqa: F401 – 確保所有 Model 都已載入，Base.metadata 才完整
 
@@ -93,10 +82,22 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 
+@app.exception_handler(IntegrityError)
+@app.exception_handler(OperationalError)
+@app.exception_handler(DataError)
+async def sqlalchemy_exception_handler(request: Request, exc: Exception):
+    """SQLAlchemy 例外 → 友善 HTTP 回應（不洩漏 SQL 細節）"""
+    http_exc = handle_db_error(exc, context=f"{request.method} {request.url.path}")
+    return JSONResponse(
+        status_code=http_exc.status_code,
+        content={"error": "database_error", "message": http_exc.detail},
+    )
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     """未捕捉的例外 → 正式環境隱藏細節，開發環境顯示訊息"""
-    logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
+    logger.exception("unhandled_exception", method=request.method, path=request.url.path, exc_info=True)
     if settings.is_production:
         content = {"error": "internal_server_error", "message": "伺服器發生錯誤，請聯絡管理員"}
     else:
@@ -174,6 +175,17 @@ app.include_router(inventory_analytics.router, prefix="/api/v1")
 app.include_router(planning.router,            prefix="/api/v1")
 # WP8：每日摘要
 app.include_router(daily_summary.router,       prefix="/api/v1")
+# E-F：CRM 進階
+app.include_router(crm_advanced.router,        prefix="/api/v1")
+# G：國際貿易文件
+app.include_router(trade_docs.router,          prefix="/api/v1")
+# I-08/I-09：財務報表（跨幣別損益、泰國稅務）
+app.include_router(financial_report.router,    prefix="/api/v1")
+# M/N：市場情報 + 定價引擎
+app.include_router(pricing.router,             prefix="/api/v1")
+app.include_router(compliance_mgmt.router,     prefix="/api/v1")
+app.include_router(logistics_ext.router,       prefix="/api/v1")
+app.include_router(finance_ext_routes.router,  prefix="/api/v1")
 
 
 # ─── 靜態檔案：/uploads 已移除公開掛載（P0-5）─────────────

@@ -9,7 +9,7 @@ from models.oem_factory import OEMFactory
 from models.processing import ProcessingOrder, ProcessingBatchLink
 from models.shipment import Shipment, ShipmentBatch
 from models.invoice import Invoice, InvoiceItem
-from models.customer import Customer
+from models.customer import Customer, CustomerContact, CustomerAddress
 from models.sales import SalesOrder, SalesOrderItem, SaleBatchAllocation
 from models.daily_sale import DailySale, DailySaleItem, MarketPrice
 from models.cost import CostEvent, BatchCostSheet, BatchCostSheetItem
@@ -34,6 +34,61 @@ from models.logistics import (
 # WP3：業務 CRM
 from models.sales_team import SalesTeam, SalesTeamMember
 from models.crm_activity import CRMActivity, CRMTask
+# C 段：HR 人事模組
+from models.hr import Department, EmployeeProfile, Appointment, Attendance, PayrollRecord
+# D/E/F 段：CRM 進階
+from models.crm import (
+    SalesTarget, SalesDailyReport,
+    SalesOpportunity, FollowUpLog, VisitRecord,
+    Quotation, QuotationItem, SampleRequest,
+    SalesSchedule, QuotationApproval,
+)
+# G：國際貿易文件
+from models.trade import (
+    TradeDocument, LetterOfCredit, CertificateOfOrigin,
+    PackingList, BillOfLading,
+    CustomsDeclaration, MRLStandard, Certification,
+    Incoterm, HSCode, Port,
+)
+# H：泰國端物流與生產
+from models.thai_ops import (
+    ContainerTemperatureLog,
+    Vehicle, VehicleMaintenance,
+    DeliveryTrip,
+    ReturnOrder, ReturnOrderItem,
+    ContractFarming, SupplierEvaluation,
+)
+# I：財務擴充
+from models.finance_ext import (
+    PettyCashFund, PettyCashRecord,
+    BankAccount, BankTransaction, Cheque,
+    Budget, CashFlowPlan,
+)
+# J/K/L：合約、公告、行事曆、會議、客訴、品質追溯
+from models.compliance import (
+    Contract, ContractPaySchedule, ContractRenewal,
+    Announcement,
+    BusinessEvent, PromoCalendar,
+    MeetingRecord, MeetingActionItem,
+    CustomerComplaint,
+    PesticideResidueTest, PesticideResidueTestItem,
+)
+# M/N：全球市場情報 + 定價引擎
+from models.market_intel import (
+    MarketPriceSource, MarketPriceData, MarketPriceAlert,
+    CompetitorProfile, CompetitorPrice,
+    GlobalTradeStatistics,
+    WeatherAlert,
+    FreightIndex, SupplyDemandIndicator,
+    GlobalBuyerDirectory,
+    PriceList, PriceListItem, PricingRule,
+)
+# O：KPI + 儀表板配置 + 自訂報表
+from models.kpi_dashboard import (
+    KPIDefinition, KPIValue,
+    DashboardConfig,
+    SavedReport,
+)
 # WP2：QC 品質管理強化
 from models.qc_enhanced import (
     QCSamplingRule, QCInspection, QCPhoto, QCScoreCard,

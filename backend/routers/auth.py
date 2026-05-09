@@ -17,13 +17,13 @@ from services.auth import authenticate_user, create_tokens, refresh_access_token
 from utils.dependencies import get_current_user
 from utils.security import verify_password, hash_password
 from utils.audit import write_audit_log
-from utils.limiter import limiter
+from utils.limiter import limiter, LOGIN_LIMIT
 
 router = APIRouter(prefix="/auth", tags=["認證"])
 
 
 @router.post("/login", response_model=TokenResponse)
-@limiter.limit("5/minute")
+@limiter.limit(LOGIN_LIMIT)
 def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)):
     """使用者登入，回傳 JWT Token"""
     ip = request.client.host if request.client else None

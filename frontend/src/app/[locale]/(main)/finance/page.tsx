@@ -2,17 +2,19 @@
 
 /**
  * 財務歷史模組 /finance
- * Tab 1：批次歷史存檔（closed/sold 批次完整 P&L）
- * Tab 2：每日銷售報表（日期範圍篩選）
+ * Tab 1：應收帳款（AR）
+ * Tab 2：應付帳款（AP）
+ * Tab 3：批次歷史存檔（closed/sold 批次完整 P&L）
+ * Tab 4：每日銷售報表（日期範圍篩選）
  */
 import { useEffect, useState } from 'react';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import Link from 'next/link';
 import {
-  Archive, BarChart3, TrendingUp, TrendingDown, RefreshCw,
+  Archive, BarChart3, RefreshCw,
   Calendar, ChevronDown, ChevronUp, Package, FileText, DollarSign
 } from 'lucide-react';
-import { analyticsApi, batchesApi, financeApi } from '@/lib/api';
+import { analyticsApi, financeApi } from '@/lib/api';
 
 // ─── 型別 ─────────────────────────────────────────────────────
 
@@ -47,19 +49,12 @@ const CLOSED_STATUSES = ['sold', 'closed'];
 const fmt = (v: number) =>
   v === 0 ? '—' : `NT$${Math.round(v).toLocaleString()}`;
 
-const MARKET_LABELS: Record<string, string> = {
-  taipei_first:  '台北一',
-  taipei_second: '台北二',
-  taichung:      '台中',
-  tainan:        '台南',
-  kaohsiung:     '高雄',
-  other:         '其他',
-};
-
 // ─── 主頁 ─────────────────────────────────────────────────────
 
 export default function FinancePage() {
   const locale = useLocale();
+  const t = useTranslations('finance');
+
   const [tab, setTab] = useState<'history' | 'daily' | 'ar' | 'ap'>('ar');
   const [arList, setArList] = useState<any[]>([]);
   const [apList, setApList] = useState<any[]>([]);
@@ -135,30 +130,125 @@ export default function FinancePage() {
       {/* 頁首 */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">財務歷史</h1>
-          <p className="text-sm text-gray-400 mt-0.5">已結案批次存檔 &amp; 每日銷售報表</p>
+          <h1 className="text-2xl font-bold text-gray-800">{t('title')}</h1>
+          <p className="text-sm text-gray-400 mt-0.5">{t('subtitle')}</p>
         </div>
       </div>
 
       {/* Tab 切換 */}
       <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg w-fit">
         {[
-          { key: 'ar', label: '應收帳款', icon: FileText },
-          { key: 'ap', label: '應付帳款', icon: DollarSign },
-          { key: 'history', label: '批次歷史', icon: Archive },
-          { key: 'daily', label: '每日銷售', icon: BarChart3 },
-        ].map(t => (
+          { key: 'ar',      label: t('tabs.ar'),      icon: FileText  },
+          { key: 'ap',      label: t('tabs.ap'),      icon: DollarSign },
+          { key: 'history', label: t('tabs.history'), icon: Archive   },
+          { key: 'daily',   label: t('tabs.daily'),   icon: BarChart3 },
+        ].map(tab_ => (
           <button
-            key={t.key}
-            onClick={() => setTab(t.key as any)}
+            key={tab_.key}
+            onClick={() => setTab(tab_.key as any)}
             className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-              tab === t.key ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              tab === tab_.key ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            <t.icon size={15} /> {t.label}
+            <tab_.icon size={15} /> {tab_.label}
           </button>
         ))}
       </div>
+
+      {/* ── 應收帳款 ── */}
+      {tab === 'ar' && (
+        <>
+          {financeSummary && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+              <div className="card p-4">
+                <p className="text-xs text-gray-400">{t('ar.arOutstanding')}</p>
+                <p className="text-xl font-bold text-blue-600">NT${Math.round(financeSummary.ar_outstanding_twd || 0).toLocaleString()}</p>
+              </div>
+              <div className="card p-4">
+                <p className="text-xs text-gray-400">{t('ar.arOverdue')}</p>
+                <p className="text-xl font-bold text-red-600">NT${Math.round(financeSummary.ar_overdue_twd || 0).toLocaleString()}</p>
+              </div>
+              <div className="card p-4">
+                <p className="text-xs text-gray-400">{t('ar.monthRevenue')}</p>
+                <p className="text-xl font-bold text-green-600">NT${Math.round(financeSummary.month_revenue_twd || 0).toLocaleString()}</p>
+              </div>
+              <div className="card p-4">
+                <p className="text-xs text-gray-400">{t('ar.monthConfirmed')}</p>
+                <p className="text-xl font-bold text-gray-800">NT${Math.round(financeSummary.month_confirmed_payments_twd || 0).toLocaleString()}</p>
+              </div>
+            </div>
+          )}
+          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+            <div className="grid grid-cols-6 gap-3 px-5 py-3 bg-gray-50 border-b text-xs font-semibold text-gray-500 uppercase">
+              <div>{t('ar.colNo')}</div>
+              <div>{t('ar.colCustomer')}</div>
+              <div className="text-right">{t('ar.colAmount')}</div>
+              <div className="text-right">{t('ar.colOutstanding')}</div>
+              <div>{t('ar.colDueDate')}</div>
+              <div>{t('ar.colStatus')}</div>
+            </div>
+            {arList.length === 0 ? (
+              <div className="text-center py-10 text-gray-400">{t('ar.noData')}</div>
+            ) : arList.map((ar: any, idx: number) => (
+              <div key={ar.id} className={`grid grid-cols-6 gap-3 px-5 py-3 items-center ${idx < arList.length - 1 ? 'border-b border-gray-100' : ''}`}>
+                <div className="font-mono text-sm text-gray-600">{ar.ar_no}</div>
+                <div className="text-sm text-gray-800">{ar.customer_name}</div>
+                <div className="text-right text-sm">NT${Math.round(ar.original_amount_twd).toLocaleString()}</div>
+                <div className="text-right text-sm font-semibold text-gray-800">NT${Math.round(ar.outstanding_amount_twd).toLocaleString()}</div>
+                <div className="text-sm text-gray-500">{ar.due_date || '-'}</div>
+                <div>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                    ar.status === 'settled' ? 'bg-green-100 text-green-700' :
+                    ar.status === 'overdue' ? 'bg-red-100 text-red-700' :
+                    ar.status === 'partial' ? 'bg-yellow-100 text-yellow-700' :
+                    'bg-blue-100 text-blue-700'
+                  }`}>
+                    {t(`ar.status.${ar.status}` as any, { defaultValue: ar.status })}
+                  </span>
+                  {ar.days_overdue > 0 && (
+                    <span className="text-xs text-red-500 ml-1">{t('ar.daysOverdue', { days: ar.days_overdue })}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* ── 應付帳款 ── */}
+      {tab === 'ap' && (
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          <div className="grid grid-cols-6 gap-3 px-5 py-3 bg-gray-50 border-b text-xs font-semibold text-gray-500 uppercase">
+            <div>{t('ap.colNo')}</div>
+            <div>{t('ap.colSupplier')}</div>
+            <div className="text-right">{t('ap.colAmount')}</div>
+            <div className="text-right">{t('ap.colOutstanding')}</div>
+            <div>{t('ap.colDueDate')}</div>
+            <div>{t('ap.colStatus')}</div>
+          </div>
+          {apList.length === 0 ? (
+            <div className="text-center py-10 text-gray-400">{t('ap.noData')}</div>
+          ) : apList.map((ap: any, idx: number) => (
+            <div key={ap.id} className={`grid grid-cols-6 gap-3 px-5 py-3 items-center ${idx < apList.length - 1 ? 'border-b border-gray-100' : ''}`}>
+              <div className="font-mono text-sm text-gray-600">{ap.ap_no}</div>
+              <div className="text-sm text-gray-800">{ap.supplier_name}</div>
+              <div className="text-right text-sm">{ap.original_amount_thb ? `฿${Math.round(ap.original_amount_thb).toLocaleString()}` : `NT$${Math.round(ap.original_amount_twd || 0).toLocaleString()}`}</div>
+              <div className="text-right text-sm font-semibold">{ap.outstanding_amount_thb ? `฿${Math.round(ap.outstanding_amount_thb).toLocaleString()}` : `NT$${Math.round(ap.outstanding_amount_twd || 0).toLocaleString()}`}</div>
+              <div className="text-sm text-gray-500">{ap.due_date || '-'}</div>
+              <div>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                  ap.status === 'settled' ? 'bg-green-100 text-green-700' :
+                  ap.status === 'overdue' ? 'bg-red-100 text-red-700' :
+                  ap.status === 'partial' ? 'bg-yellow-100 text-yellow-700' :
+                  'bg-blue-100 text-blue-700'
+                }`}>
+                  {t(`ap.status.${ap.status}` as any, { defaultValue: ap.status })}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* ── 批次歷史存檔 ── */}
       {tab === 'history' && (
@@ -166,7 +256,7 @@ export default function FinancePage() {
           {/* 匯率控制 + 重新載入 */}
           <div className="flex items-center gap-3 mb-5">
             <label className="text-sm text-gray-600 flex items-center gap-2">
-              THB→TWD 匯率：
+              {t('history.exchangeRateLabel')}
               <input
                 type="number"
                 value={exchangeRate}
@@ -181,7 +271,7 @@ export default function FinancePage() {
               onClick={() => loadHistory(exchangeRate)}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-gray-100 text-gray-600 rounded-md hover:bg-gray-200"
             >
-              <RefreshCw size={14} /> 套用
+              <RefreshCw size={14} /> {t('history.applyBtn')}
             </button>
           </div>
 
@@ -189,21 +279,21 @@ export default function FinancePage() {
           {batches.length > 0 && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               <div className="card p-4">
-                <p className="text-xs text-gray-400 mb-1">已結案批次</p>
+                <p className="text-xs text-gray-400 mb-1">{t('history.kpiClosedBatches')}</p>
                 <p className="text-2xl font-bold text-gray-800">{batches.length}</p>
               </div>
               <div className="card p-4">
-                <p className="text-xs text-gray-400 mb-1">總銷售收入</p>
+                <p className="text-xs text-gray-400 mb-1">{t('history.kpiTotalRevenue')}</p>
                 <p className="text-xl font-bold text-gray-800">{fmt(totalRevenue)}</p>
               </div>
               <div className="card p-4">
-                <p className="text-xs text-gray-400 mb-1">總毛利</p>
+                <p className="text-xs text-gray-400 mb-1">{t('history.kpiTotalProfit')}</p>
                 <p className={`text-xl font-bold ${totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {totalProfit >= 0 ? '+' : ''}{fmt(totalProfit)}
                 </p>
               </div>
               <div className="card p-4">
-                <p className="text-xs text-gray-400 mb-1">平均毛利率</p>
+                <p className="text-xs text-gray-400 mb-1">{t('history.kpiAvgMargin')}</p>
                 <p className={`text-xl font-bold ${avgMargin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {avgMargin.toFixed(1)}%
                 </p>
@@ -213,23 +303,23 @@ export default function FinancePage() {
 
           {/* 批次列表 */}
           {histLoading ? (
-            <div className="text-center py-16 text-gray-400">載入中…</div>
+            <div className="text-center py-16 text-gray-400">{t('history.loading')}</div>
           ) : batches.length === 0 ? (
             <div className="flex flex-col items-center py-20 text-gray-400">
               <Package size={40} className="mb-3 opacity-30" />
-              <p>尚無已結案批次</p>
+              <p>{t('history.noData')}</p>
             </div>
           ) : (
             <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
               {/* 表頭 */}
               <div className="grid grid-cols-7 gap-3 px-5 py-3 bg-gray-50 border-b text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                <div>批次</div>
-                <div>狀態</div>
-                <div className="text-right">初始重量</div>
-                <div className="text-right">總成本</div>
-                <div className="text-right">銷售收入</div>
-                <div className="text-right">毛利</div>
-                <div className="text-right">毛利率</div>
+                <div>{t('history.colBatch')}</div>
+                <div>{t('history.colStatus')}</div>
+                <div className="text-right">{t('history.colInitWeight')}</div>
+                <div className="text-right">{t('history.colTotalCost')}</div>
+                <div className="text-right">{t('history.colRevenue')}</div>
+                <div className="text-right">{t('history.colProfit')}</div>
+                <div className="text-right">{t('history.colMargin')}</div>
               </div>
 
               {batches.map((b, idx) => {
@@ -260,7 +350,7 @@ export default function FinancePage() {
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                           b.status === 'closed' ? 'bg-gray-100 text-gray-500' : 'bg-emerald-100 text-emerald-700'
                         }`}>
-                          {b.status === 'closed' ? '已結案' : '已售出'}
+                          {b.status === 'closed' ? t('history.statusClosed') : t('history.statusSold')}
                         </span>
                       </div>
                       <div className="text-right text-sm text-gray-600">
@@ -290,7 +380,7 @@ export default function FinancePage() {
                     {/* 展開：成本層級明細 */}
                     {isExpanded && layerEntries.length > 0 && (
                       <div className="bg-gray-50 border-b border-gray-100 px-5 py-3">
-                        <p className="text-xs font-semibold text-gray-500 mb-2">成本結構明細</p>
+                        <p className="text-xs font-semibold text-gray-500 mb-2">{t('history.costDetail')}</p>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                           {layerEntries.map(([layer, amt]) => (
                             <div key={layer} className="bg-white rounded-lg px-3 py-2 border border-gray-200">
@@ -300,7 +390,7 @@ export default function FinancePage() {
                           ))}
                         </div>
                         <div className="mt-2 text-xs text-gray-500">
-                          每公斤成本：NT${b.cost_per_kg_twd.toLocaleString()} / kg
+                          {t('history.costPerKg', { cost: b.cost_per_kg_twd.toLocaleString() })}
                         </div>
                       </div>
                     )}
@@ -310,85 +400,6 @@ export default function FinancePage() {
             </div>
           )}
         </>
-      )}
-
-      {/* ── 應收帳款 ── */}
-      {tab === 'ar' && (
-        <>
-          {financeSummary && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
-              <div className="card p-4">
-                <p className="text-xs text-gray-400">AR 未收總額</p>
-                <p className="text-xl font-bold text-blue-600">NT${Math.round(financeSummary.ar_outstanding_twd || 0).toLocaleString()}</p>
-              </div>
-              <div className="card p-4">
-                <p className="text-xs text-gray-400">AR 逾期</p>
-                <p className="text-xl font-bold text-red-600">NT${Math.round(financeSummary.ar_overdue_twd || 0).toLocaleString()}</p>
-              </div>
-              <div className="card p-4">
-                <p className="text-xs text-gray-400">本月營收</p>
-                <p className="text-xl font-bold text-green-600">NT${Math.round(financeSummary.month_revenue_twd || 0).toLocaleString()}</p>
-              </div>
-              <div className="card p-4">
-                <p className="text-xs text-gray-400">本月確認收款</p>
-                <p className="text-xl font-bold text-gray-800">NT${Math.round(financeSummary.month_confirmed_payments_twd || 0).toLocaleString()}</p>
-              </div>
-            </div>
-          )}
-          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-            <div className="grid grid-cols-6 gap-3 px-5 py-3 bg-gray-50 border-b text-xs font-semibold text-gray-500 uppercase">
-              <div>編號</div><div>客戶</div><div className="text-right">應收</div><div className="text-right">未收</div><div>到期日</div><div>狀態</div>
-            </div>
-            {arList.length === 0 ? (
-              <div className="text-center py-10 text-gray-400">尚無應收帳款</div>
-            ) : arList.map((ar: any, idx: number) => (
-              <div key={ar.id} className={`grid grid-cols-6 gap-3 px-5 py-3 items-center ${idx < arList.length - 1 ? 'border-b border-gray-100' : ''}`}>
-                <div className="font-mono text-sm text-gray-600">{ar.ar_no}</div>
-                <div className="text-sm text-gray-800">{ar.customer_name}</div>
-                <div className="text-right text-sm">NT${Math.round(ar.original_amount_twd).toLocaleString()}</div>
-                <div className="text-right text-sm font-semibold text-gray-800">NT${Math.round(ar.outstanding_amount_twd).toLocaleString()}</div>
-                <div className="text-sm text-gray-500">{ar.due_date || '-'}</div>
-                <div>
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                    ar.status === 'settled' ? 'bg-green-100 text-green-700' :
-                    ar.status === 'overdue' ? 'bg-red-100 text-red-700' :
-                    ar.status === 'partial' ? 'bg-yellow-100 text-yellow-700' :
-                    'bg-blue-100 text-blue-700'
-                  }`}>{ar.status === 'settled' ? '已結清' : ar.status === 'overdue' ? '逾期' : ar.status === 'partial' ? '部分' : '待收'}</span>
-                  {ar.days_overdue > 0 && <span className="text-xs text-red-500 ml-1">{ar.days_overdue}天</span>}
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-
-      {/* ── 應付帳款 ── */}
-      {tab === 'ap' && (
-        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-          <div className="grid grid-cols-6 gap-3 px-5 py-3 bg-gray-50 border-b text-xs font-semibold text-gray-500 uppercase">
-            <div>編號</div><div>供應商</div><div className="text-right">應付</div><div className="text-right">未付</div><div>到期日</div><div>狀態</div>
-          </div>
-          {apList.length === 0 ? (
-            <div className="text-center py-10 text-gray-400">尚無應付帳款</div>
-          ) : apList.map((ap: any, idx: number) => (
-            <div key={ap.id} className={`grid grid-cols-6 gap-3 px-5 py-3 items-center ${idx < apList.length - 1 ? 'border-b border-gray-100' : ''}`}>
-              <div className="font-mono text-sm text-gray-600">{ap.ap_no}</div>
-              <div className="text-sm text-gray-800">{ap.supplier_name}</div>
-              <div className="text-right text-sm">{ap.original_amount_thb ? `฿${Math.round(ap.original_amount_thb).toLocaleString()}` : `NT$${Math.round(ap.original_amount_twd || 0).toLocaleString()}`}</div>
-              <div className="text-right text-sm font-semibold">{ap.outstanding_amount_thb ? `฿${Math.round(ap.outstanding_amount_thb).toLocaleString()}` : `NT$${Math.round(ap.outstanding_amount_twd || 0).toLocaleString()}`}</div>
-              <div className="text-sm text-gray-500">{ap.due_date || '-'}</div>
-              <div>
-                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                  ap.status === 'settled' ? 'bg-green-100 text-green-700' :
-                  ap.status === 'overdue' ? 'bg-red-100 text-red-700' :
-                  ap.status === 'partial' ? 'bg-yellow-100 text-yellow-700' :
-                  'bg-blue-100 text-blue-700'
-                }`}>{ap.status === 'settled' ? '已結清' : ap.status === 'overdue' ? '逾期' : ap.status === 'partial' ? '部分' : '待付'}</span>
-              </div>
-            </div>
-          ))}
-        </div>
       )}
 
       {/* ── 每日銷售報表 ── */}
@@ -402,7 +413,7 @@ export default function FinancePage() {
               value={dateFrom}
               onChange={e => setDateFrom(e.target.value)}
               className="input w-40 text-sm"
-              placeholder="起始日期"
+              placeholder={t('daily.dateFrom')}
             />
             <span className="text-gray-400">—</span>
             <input
@@ -410,13 +421,13 @@ export default function FinancePage() {
               value={dateTo}
               onChange={e => setDateTo(e.target.value)}
               className="input w-40 text-sm"
-              placeholder="結束日期"
+              placeholder={t('daily.dateTo')}
             />
             <button
               onClick={loadDaily}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-primary-50 text-primary-700 border border-primary-200 rounded-md hover:bg-primary-100"
             >
-              <RefreshCw size={14} /> 查詢
+              <RefreshCw size={14} /> {t('daily.queryBtn')}
             </button>
           </div>
 
@@ -424,15 +435,15 @@ export default function FinancePage() {
           {dailyRows.length > 0 && (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-5">
               <div className="card p-4">
-                <p className="text-xs text-gray-400 mb-1">期間銷售收入</p>
+                <p className="text-xs text-gray-400 mb-1">{t('daily.kpiRevenue')}</p>
                 <p className="text-xl font-bold text-gray-800">{fmt(dailyTotal)}</p>
               </div>
               <div className="card p-4">
-                <p className="text-xs text-gray-400 mb-1">期間銷售量</p>
+                <p className="text-xs text-gray-400 mb-1">{t('daily.kpiVolume')}</p>
                 <p className="text-xl font-bold text-gray-800">{dailyKg.toLocaleString()} kg</p>
               </div>
               <div className="card p-4">
-                <p className="text-xs text-gray-400 mb-1">筆數</p>
+                <p className="text-xs text-gray-400 mb-1">{t('daily.kpiCount')}</p>
                 <p className="text-xl font-bold text-gray-800">{dailyRows.length}</p>
               </div>
             </div>
@@ -440,23 +451,23 @@ export default function FinancePage() {
 
           {/* 表格 */}
           {dailyLoading ? (
-            <div className="text-center py-16 text-gray-400">載入中…</div>
+            <div className="text-center py-16 text-gray-400">{t('daily.loading')}</div>
           ) : dailyRows.length === 0 ? (
             <div className="flex flex-col items-center py-20 text-gray-400">
               <BarChart3 size={40} className="mb-3 opacity-30" />
-              <p>查無每日銷售資料</p>
-              <p className="text-xs mt-1">請選擇日期範圍後點選查詢</p>
+              <p>{t('daily.noData')}</p>
+              <p className="text-xs mt-1">{t('daily.noDataHint')}</p>
             </div>
           ) : (
             <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
               {/* 表頭 */}
               <div className="grid grid-cols-6 gap-3 px-5 py-3 bg-gray-50 border-b text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                <div>日期</div>
-                <div>市場</div>
-                <div className="text-right">銷售量 (kg)</div>
-                <div className="text-right">箱數</div>
-                <div className="text-right">銷售金額</div>
-                <div className="text-right">筆數</div>
+                <div>{t('daily.colDate')}</div>
+                <div>{t('daily.colMarket')}</div>
+                <div className="text-right">{t('daily.colVolume')}</div>
+                <div className="text-right">{t('daily.colBoxes')}</div>
+                <div className="text-right">{t('daily.colAmount')}</div>
+                <div className="text-right">{t('daily.colSaleCount')}</div>
               </div>
 
               {dailyRows.map((r, idx) => (
@@ -468,7 +479,7 @@ export default function FinancePage() {
                 >
                   <div className="text-sm font-medium text-gray-700">{r.sale_date}</div>
                   <div className="text-sm text-gray-600">
-                    {MARKET_LABELS[r.market_code] ?? r.market_code}
+                    {t(`daily.markets.${r.market_code}` as any, { defaultValue: r.market_code })}
                   </div>
                   <div className="text-right text-sm text-gray-700">
                     {r.total_kg.toLocaleString()} kg
@@ -483,7 +494,7 @@ export default function FinancePage() {
 
               {/* 合計列 */}
               <div className="grid grid-cols-6 gap-3 px-5 py-3 bg-gray-50 border-t text-sm font-semibold text-gray-700">
-                <div className="col-span-2 text-gray-500">合計</div>
+                <div className="col-span-2 text-gray-500">{t('daily.totalLabel')}</div>
                 <div className="text-right">{dailyKg.toLocaleString()} kg</div>
                 <div className="text-right">
                   {dailyRows.reduce((s, r) => s + r.total_boxes, 0)}

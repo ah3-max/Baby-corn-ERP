@@ -84,7 +84,17 @@ class Batch(Base):
     # 有效期設定
     shelf_life_days         = Column(Integer, nullable=True)            # 有效天數（預設 23）
 
+    # ── L-02 批次追溯強化 ──────────────────────────────────────────────
+    parent_batch_ids        = Column(JSON, default=list)               # 上游批次 UUID 清單（原料來源）
+    child_batch_ids         = Column(JSON, default=list)               # 下游批次 UUID 清單（加工產出）
+    farm_origin_id          = Column(UUID(as_uuid=True), nullable=True) # 農場 UUID（預留給 ContractFarming）
+    harvest_field_code      = Column(String(50), nullable=True)         # 田塊代碼
+    recall_status           = Column(String(20), nullable=False, default="none")  # none/simulated/active/completed
+    recall_initiated_at     = Column(DateTime, nullable=True)           # 召回啟動時間
+
     created_by        = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    updated_by        = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)   # 最後更新者
+    deleted_at        = Column(DateTime, nullable=True)                                      # 軟刪除時間
     created_at        = Column(DateTime, default=datetime.utcnow)
     updated_at        = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -92,3 +102,4 @@ class Batch(Base):
     purchase_order = relationship("PurchaseOrder", foreign_keys=[purchase_order_id])
     product_type   = relationship("ProductType", foreign_keys=[product_type_id])
     creator        = relationship("User", foreign_keys=[created_by])
+    updater        = relationship("User", foreign_keys=[updated_by])

@@ -5,11 +5,14 @@
  * 顯示：QC 趨勢、供應商品質排名、缺陷頻率、最近檢驗列表
  */
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { ClipboardCheck, TrendingUp, AlertTriangle, Award, Plus, X } from 'lucide-react';
 import { qcEnhancedApi, batchesApi } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';
 
 export default function QCCenterPage() {
+  const t  = useTranslations('qcCenter');
+  const tc = useTranslations('common');
   const { showToast } = useToast();
   const [showCreate, setShowCreate] = useState(false);
   const [trend, setTrend] = useState<any>(null);
@@ -40,14 +43,14 @@ export default function QCCenterPage() {
     load();
   }, []);
 
-  if (loading) return <div className="text-center py-16 text-gray-400">載入中...</div>;
+  if (loading) return <div className="text-center py-16 text-gray-400">{tc('loading')}</div>;
 
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
-        <h1 className="text-2xl font-bold text-gray-800">QC 品質中心</h1>
+        <h1 className="text-2xl font-bold text-gray-800">{t('title')}</h1>
         <button onClick={() => setShowCreate(true)} className="btn-primary flex items-center gap-2">
-          <Plus size={16} /> 新增檢驗
+          <Plus size={16} /> {t('addInspection')}
         </button>
       </div>
 
@@ -59,7 +62,7 @@ export default function QCCenterPage() {
               <ClipboardCheck size={20} className="text-blue-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-500">總檢驗次數</p>
+              <p className="text-xs text-gray-500">{t('totalInspections')}</p>
               <p className="text-xl font-bold text-gray-800">{trend?.total_inspections || 0}</p>
             </div>
           </div>
@@ -70,7 +73,7 @@ export default function QCCenterPage() {
               <TrendingUp size={20} className="text-green-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-500">平均分數</p>
+              <p className="text-xs text-gray-500">{t('avgScore')}</p>
               <p className="text-xl font-bold text-gray-800">{trend?.avg_score || 0}</p>
             </div>
           </div>
@@ -81,7 +84,7 @@ export default function QCCenterPage() {
               <Award size={20} className="text-emerald-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-500">通過率</p>
+              <p className="text-xs text-gray-500">{t('passRate')}</p>
               <p className="text-xl font-bold text-gray-800">{trend?.pass_rate_pct || 0}%</p>
             </div>
           </div>
@@ -92,7 +95,7 @@ export default function QCCenterPage() {
               <AlertTriangle size={20} className="text-red-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-500">缺陷類型</p>
+              <p className="text-xs text-gray-500">{t('defectTypes')}</p>
               <p className="text-xl font-bold text-gray-800">{defects ? Object.keys(defects.defects || {}).length : 0}</p>
             </div>
           </div>
@@ -102,7 +105,7 @@ export default function QCCenterPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 等級分佈 */}
         <div className="card p-5">
-          <h3 className="font-semibold text-gray-800 mb-4">等級分佈</h3>
+          <h3 className="font-semibold text-gray-800 mb-4">{t('gradeDistribution')}</h3>
           {trend?.grade_distribution && Object.keys(trend.grade_distribution).length > 0 ? (
             <div className="space-y-2">
               {Object.entries(trend.grade_distribution).map(([grade, count]: [string, any]) => (
@@ -125,13 +128,13 @@ export default function QCCenterPage() {
               ))}
             </div>
           ) : (
-            <p className="text-gray-400 text-sm">尚無資料</p>
+            <p className="text-gray-400 text-sm">{tc('noData')}</p>
           )}
         </div>
 
         {/* 供應商品質排名 */}
         <div className="card p-5">
-          <h3 className="font-semibold text-gray-800 mb-4">供應商品質排名</h3>
+          <h3 className="font-semibold text-gray-800 mb-4">{t('supplierRanking')}</h3>
           {supplierQuality.length > 0 ? (
             <div className="space-y-2">
               {supplierQuality.map((sq: any, idx: number) => (
@@ -141,8 +144,8 @@ export default function QCCenterPage() {
                     <span className="text-sm font-medium text-gray-700">{sq.supplier_name}</span>
                   </div>
                   <div className="flex items-center gap-4 text-sm">
-                    <span className="text-gray-500">{sq.inspection_count} 次</span>
-                    <span className="font-semibold text-gray-800">{sq.avg_score || '-'} 分</span>
+                    <span className="text-gray-500">{sq.inspection_count} {t('times')}</span>
+                    <span className="font-semibold text-gray-800">{sq.avg_score || '-'} {t('scoreUnit')}</span>
                     <span className={`font-medium ${sq.pass_rate_pct >= 80 ? 'text-green-600' : sq.pass_rate_pct >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
                       {sq.pass_rate_pct}%
                     </span>
@@ -151,45 +154,47 @@ export default function QCCenterPage() {
               ))}
             </div>
           ) : (
-            <p className="text-gray-400 text-sm">尚無資料</p>
+            <p className="text-gray-400 text-sm">{tc('noData')}</p>
           )}
         </div>
 
         {/* 缺陷頻率 */}
         <div className="card p-5">
-          <h3 className="font-semibold text-gray-800 mb-4">缺陷頻率 TOP 10</h3>
+          <h3 className="font-semibold text-gray-800 mb-4">{t('defectFrequency')}</h3>
           {defects?.defects && Object.keys(defects.defects).length > 0 ? (
             <div className="space-y-2">
               {Object.entries(defects.defects).slice(0, 10).map(([defect, count]: [string, any]) => (
                 <div key={defect} className="flex items-center justify-between py-1.5">
                   <span className="text-sm text-gray-700">{defect}</span>
-                  <span className="text-sm font-semibold text-red-600">{count} 次</span>
+                  <span className="text-sm font-semibold text-red-600">{count} {t('times')}</span>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-gray-400 text-sm">尚無缺陷記錄</p>
+            <p className="text-gray-400 text-sm">{t('noDefects')}</p>
           )}
         </div>
 
         {/* 最近檢驗 */}
         <div className="card p-5">
-          <h3 className="font-semibold text-gray-800 mb-4">最近檢驗</h3>
+          <h3 className="font-semibold text-gray-800 mb-4">{t('recentInspections')}</h3>
           {inspections.length > 0 ? (
             <div className="space-y-2">
               {inspections.map((insp: any) => (
                 <div key={insp.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
                   <div>
                     <span className="text-sm font-mono text-gray-600">{insp.inspection_no}</span>
-                    <span className="text-xs text-gray-400 ml-2">{insp.inspection_stage}</span>
+                    <span className="text-xs text-gray-400 ml-2">
+                      {t(`stages.${insp.inspection_stage}` as any) || insp.inspection_stage}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    {insp.overall_score && <span className="text-xs text-gray-500">{insp.overall_score}分</span>}
+                    {insp.overall_score && <span className="text-xs text-gray-500">{insp.overall_score} {t('scoreUnit')}</span>}
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                       insp.overall_result === 'pass' ? 'bg-green-100 text-green-700' :
                       insp.overall_result === 'fail' ? 'bg-red-100 text-red-700' :
                       'bg-yellow-100 text-yellow-700'
-                    }`}>{insp.overall_result === 'pass' ? '通過' : insp.overall_result === 'fail' ? '不通過' : '有條件'}</span>
+                    }`}>{t(`results.${insp.overall_result}` as any) || insp.overall_result}</span>
                     {insp.overall_grade && (
                       <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-gray-100 text-gray-600">{insp.overall_grade}</span>
                     )}
@@ -198,7 +203,7 @@ export default function QCCenterPage() {
               ))}
             </div>
           ) : (
-            <p className="text-gray-400 text-sm">尚無檢驗記錄</p>
+            <p className="text-gray-400 text-sm">{t('noInspections')}</p>
           )}
         </div>
       </div>
@@ -210,6 +215,8 @@ export default function QCCenterPage() {
 }
 
 function CreateInspectionModal({ onClose }: { onClose: (refresh?: boolean) => void }) {
+  const t  = useTranslations('qcCenter');
+  const tc = useTranslations('common');
   const [batches, setBatches] = useState<any[]>([]);
   const [form, setForm] = useState({
     batch_id: '', inspection_stage: 'factory_incoming', inspector_name: '',
@@ -237,50 +244,52 @@ function CreateInspectionModal({ onClose }: { onClose: (refresh?: boolean) => vo
   };
 
   const STAGES = [
-    { value: 'factory_incoming', label: '進料檢驗' },
-    { value: 'factory_processing', label: '加工中檢驗' },
-    { value: 'pre_packing', label: '包裝前檢驗' },
-    { value: 'pre_export', label: '出口前檢驗' },
-    { value: 'tw_arrival', label: '台灣到貨檢驗' },
-    { value: 'tw_pre_delivery', label: '出貨前檢驗' },
+    'factory_incoming',
+    'factory_processing',
+    'pre_packing',
+    'pre_export',
+    'tw_arrival',
+    'tw_pre_delivery',
   ];
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-gray-800 text-lg">新增 QC 檢驗</h3>
+          <h3 className="font-bold text-gray-800 text-lg">{t('createInspectionTitle')}</h3>
           <button onClick={() => onClose()}><X size={18} className="text-gray-400" /></button>
         </div>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">批次 *</label>
+            <label className="text-xs font-medium text-gray-600 mb-1 block">{t('batchLabel')} *</label>
             <select value={form.batch_id} onChange={e => setForm({...form, batch_id: e.target.value})} className="input w-full">
-              <option value="">選擇批次</option>
+              <option value="">{t('selectBatch')}</option>
               {batches.map((b: any) => <option key={b.id} value={b.id}>{b.batch_no} ({b.status})</option>)}
             </select>
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">檢驗階段</label>
+            <label className="text-xs font-medium text-gray-600 mb-1 block">{t('inspectionStage')}</label>
             <select value={form.inspection_stage} onChange={e => setForm({...form, inspection_stage: e.target.value})} className="input w-full">
-              {STAGES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+              {STAGES.map(s => (
+                <option key={s} value={s}>{t(`stages.${s}` as any)}</option>
+              ))}
             </select>
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">檢驗員 *</label>
+            <label className="text-xs font-medium text-gray-600 mb-1 block">{t('inspectorLabel')} *</label>
             <input value={form.inspector_name} onChange={e => setForm({...form, inspector_name: e.target.value})} className="input w-full" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">結果</label>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">{t('resultLabel')}</label>
               <select value={form.overall_result} onChange={e => setForm({...form, overall_result: e.target.value})} className="input w-full">
-                <option value="pass">通過</option>
-                <option value="conditional_pass">有條件通過</option>
-                <option value="fail">不通過</option>
+                <option value="pass">{t('results.pass')}</option>
+                <option value="conditional_pass">{t('results.conditional_pass')}</option>
+                <option value="fail">{t('results.fail')}</option>
               </select>
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">等級</label>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">{t('gradeLabel')}</label>
               <select value={form.overall_grade} onChange={e => setForm({...form, overall_grade: e.target.value})} className="input w-full">
                 {['A','B','C','D','reject'].map(g => <option key={g} value={g}>{g}</option>)}
               </select>
@@ -288,23 +297,23 @@ function CreateInspectionModal({ onClose }: { onClose: (refresh?: boolean) => vo
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">綜合分數 (0-100)</label>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">{t('overallScore')}</label>
               <input type="number" min="0" max="100" value={form.overall_score} onChange={e => setForm({...form, overall_score: e.target.value})} className="input w-full" />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">環境溫度 (°C)</label>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">{t('envTemp')}</label>
               <input type="number" step="0.1" value={form.environment_temp_c} onChange={e => setForm({...form, environment_temp_c: e.target.value})} className="input w-full" />
             </div>
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">建議</label>
+            <label className="text-xs font-medium text-gray-600 mb-1 block">{t('recommendation')}</label>
             <textarea value={form.recommendation} onChange={e => setForm({...form, recommendation: e.target.value})} className="input w-full h-16 resize-none" />
           </div>
         </div>
         <div className="flex gap-2 mt-5">
-          <button onClick={() => onClose()} className="btn-secondary flex-1">取消</button>
+          <button onClick={() => onClose()} className="btn-secondary flex-1">{tc('cancel')}</button>
           <button onClick={submit} disabled={saving || !form.batch_id || !form.inspector_name} className="btn-primary flex-1">
-            {saving ? '儲存中...' : '建立檢驗'}
+            {saving ? tc('loading') : t('createBtn')}
           </button>
         </div>
       </div>

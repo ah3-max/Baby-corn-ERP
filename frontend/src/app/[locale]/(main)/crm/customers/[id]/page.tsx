@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   ArrowLeft, User, Phone, Mail, MapPin, CreditCard,
   ShoppingCart, DollarSign, FileText, Activity,
@@ -14,6 +14,8 @@ import {
 import { crmApi } from '@/lib/api';
 
 export default function Customer360Page() {
+  const t  = useTranslations('crmCustomer360');
+  const tc = useTranslations('common');
   const { id } = useParams();
   const locale = useLocale();
   const [data, setData] = useState<any>(null);
@@ -27,13 +29,13 @@ export default function Customer360Page() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  if (loading) return <div className="text-center py-16 text-gray-400">載入中...</div>;
-  if (!data) return <div className="text-center py-16 text-gray-400">客戶不存在</div>;
+  if (loading) return <div className="text-center py-16 text-gray-400">{tc('loading')}</div>;
+  if (!data)   return <div className="text-center py-16 text-gray-400">{t('notFound')}</div>;
 
   const { customer: c, summary: s } = data;
 
   const CREDIT_COLORS: Record<string, string> = {
-    good: 'bg-green-100 text-green-700',
+    good:    'bg-green-100 text-green-700',
     warning: 'bg-yellow-100 text-yellow-700',
     blocked: 'bg-red-100 text-red-700',
   };
@@ -42,7 +44,7 @@ export default function Customer360Page() {
     <div>
       {/* 返回 */}
       <Link href={`/${locale}/crm`} className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary-600 mb-4">
-        <ArrowLeft size={16} /> 返回 CRM
+        <ArrowLeft size={16} /> {t('backToCrm')}
       </Link>
 
       {/* 客戶基本資訊卡 */}
@@ -59,7 +61,7 @@ export default function Customer360Page() {
               )}
               {c.credit_status && (
                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${CREDIT_COLORS[c.credit_status] || 'bg-gray-100 text-gray-600'}`}>
-                  {c.credit_status === 'good' ? '信用良好' : c.credit_status === 'warning' ? '信用警示' : '信用凍結'}
+                  {t(`creditStatus.${c.credit_status}` as any)}
                 </span>
               )}
             </div>
@@ -97,25 +99,25 @@ export default function Customer360Page() {
       {/* KPI 摘要 */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         <div className="card p-4 text-center">
-          <p className="text-xs text-gray-500">累計營收</p>
+          <p className="text-xs text-gray-500">{t('kpi.totalRevenue')}</p>
           <p className="text-lg font-bold text-gray-800">NT${Math.round(s.total_revenue_twd).toLocaleString()}</p>
         </div>
         <div className="card p-4 text-center">
-          <p className="text-xs text-gray-500">已收款</p>
+          <p className="text-xs text-gray-500">{t('kpi.paid')}</p>
           <p className="text-lg font-bold text-green-600">NT${Math.round(s.total_paid_twd).toLocaleString()}</p>
         </div>
         <div className="card p-4 text-center">
-          <p className="text-xs text-gray-500">應收餘額</p>
+          <p className="text-xs text-gray-500">{t('kpi.arBalance')}</p>
           <p className={`text-lg font-bold ${s.ar_balance_twd > 0 ? 'text-red-600' : 'text-gray-600'}`}>
             NT${Math.round(s.ar_balance_twd).toLocaleString()}
           </p>
         </div>
         <div className="card p-4 text-center">
-          <p className="text-xs text-gray-500">訂單數</p>
+          <p className="text-xs text-gray-500">{t('kpi.orderCount')}</p>
           <p className="text-lg font-bold text-gray-800">{s.order_count}</p>
         </div>
         <div className="card p-4 text-center">
-          <p className="text-xs text-gray-500">市場銷售</p>
+          <p className="text-xs text-gray-500">{t('kpi.dailySale')}</p>
           <p className="text-lg font-bold text-gray-800">{s.daily_sale_count}</p>
         </div>
       </div>
@@ -125,7 +127,7 @@ export default function Customer360Page() {
         {/* 最近訂單 */}
         <div className="card p-5">
           <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-            <ShoppingCart size={16} /> 最近銷售訂單
+            <ShoppingCart size={16} /> {t('recentOrders')}
           </h3>
           {data.recent_orders?.length > 0 ? (
             <div className="space-y-2">
@@ -138,7 +140,7 @@ export default function Customer360Page() {
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold">NT${Math.round(o.amount).toLocaleString()}</span>
                     <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                      o.status === 'closed' ? 'bg-green-100 text-green-700' :
+                      o.status === 'closed'    ? 'bg-green-100 text-green-700' :
                       o.status === 'delivered' ? 'bg-purple-100 text-purple-700' :
                       'bg-gray-100 text-gray-600'
                     }`}>{o.status}</span>
@@ -146,13 +148,13 @@ export default function Customer360Page() {
                 </div>
               ))}
             </div>
-          ) : <p className="text-sm text-gray-400">尚無訂單</p>}
+          ) : <p className="text-sm text-gray-400">{t('noOrders')}</p>}
         </div>
 
         {/* 最近市場銷售 */}
         <div className="card p-5">
           <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-            <DollarSign size={16} /> 最近市場銷售
+            <DollarSign size={16} /> {t('recentDailySales')}
           </h3>
           {data.recent_daily_sales?.length > 0 ? (
             <div className="space-y-2">
@@ -166,13 +168,13 @@ export default function Customer360Page() {
                 </div>
               ))}
             </div>
-          ) : <p className="text-sm text-gray-400">尚無銷售</p>}
+          ) : <p className="text-sm text-gray-400">{t('noSales')}</p>}
         </div>
 
         {/* 最近付款 */}
         <div className="card p-5">
           <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-            <FileText size={16} /> 最近付款記錄
+            <FileText size={16} /> {t('recentPayments')}
           </h3>
           {data.recent_payments?.length > 0 ? (
             <div className="space-y-2">
@@ -186,18 +188,18 @@ export default function Customer360Page() {
                     <span className="text-sm font-semibold">NT${Math.round(p.amount).toLocaleString()}</span>
                     <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
                       p.status === 'confirmed' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                    }`}>{p.status === 'confirmed' ? '已確認' : '待確認'}</span>
+                    }`}>{t(`paymentStatus.${p.status === 'confirmed' ? 'confirmed' : 'pending'}`)}</span>
                   </div>
                 </div>
               ))}
             </div>
-          ) : <p className="text-sm text-gray-400">尚無付款</p>}
+          ) : <p className="text-sm text-gray-400">{t('noPayments')}</p>}
         </div>
 
         {/* CRM 活動 */}
         <div className="card p-5">
           <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-            <Activity size={16} /> CRM 活動記錄
+            <Activity size={16} /> {t('recentActivities')}
           </h3>
           {data.recent_activities?.length > 0 ? (
             <div className="space-y-2">
@@ -205,23 +207,23 @@ export default function Customer360Page() {
                 <div key={a.id} className="py-2 border-b border-gray-50 last:border-0">
                   <div className="flex items-center justify-between">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                      a.type === 'visit' ? 'bg-blue-100 text-blue-700' :
-                      a.type === 'call' ? 'bg-green-100 text-green-700' :
+                      a.type === 'visit'     ? 'bg-blue-100 text-blue-700' :
+                      a.type === 'call'      ? 'bg-green-100 text-green-700' :
                       a.type === 'complaint' ? 'bg-red-100 text-red-700' :
                       'bg-gray-100 text-gray-600'
-                    }`}>{a.type}</span>
+                    }`}>{t(`activityTypes.${a.type}` as any) || a.type}</span>
                     <span className="text-xs text-gray-400">{a.date?.split('T')[0]}</span>
                   </div>
                   {a.summary && <p className="text-sm text-gray-600 mt-1">{a.summary}</p>}
                   {a.result && (
                     <span className={`text-xs ${a.result === 'positive' ? 'text-green-600' : a.result === 'negative' ? 'text-red-600' : 'text-gray-500'}`}>
-                      {a.result === 'positive' ? '正面' : a.result === 'negative' ? '負面' : '中性'}
+                      {t(`activityResult.${a.result}` as any)}
                     </span>
                   )}
                 </div>
               ))}
             </div>
-          ) : <p className="text-sm text-gray-400">尚無活動</p>}
+          ) : <p className="text-sm text-gray-400">{t('noActivities')}</p>}
         </div>
       </div>
     </div>

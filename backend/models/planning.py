@@ -35,6 +35,8 @@ class ProcurementPlan(Base):
     status              = Column(String(15), nullable=False, default="draft")  # draft / approved / in_progress / completed
     approved_by         = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_by          = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    updated_by          = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    deleted_at          = Column(DateTime, nullable=True)
     created_at          = Column(DateTime, default=datetime.utcnow)
     updated_at          = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

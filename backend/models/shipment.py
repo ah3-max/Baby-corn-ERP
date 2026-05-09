@@ -64,12 +64,43 @@ class Shipment(Base):
     insurance_cost      = Column(Numeric(12, 2), nullable=True)  # 保險費（TWD）
     handling_cost       = Column(Numeric(12, 2), nullable=True)  # 搬運/倉儲費（TWD）
     other_cost          = Column(Numeric(12, 2), nullable=True)  # 其他費用（TWD）
+    # ── 國際貿易欄位（B-02）──────────────────────────────────────────────
+    exchange_rate         = Column(Numeric(10, 4), nullable=True)             # THB→TWD 匯率快照
+    incoterm              = Column(String(10), nullable=True)                 # 貿易條件（FOB/CIF/CFR）
+    hs_code               = Column(String(20), nullable=True)                 # 海關 HS 稅則號碼
+    commercial_invoice_no = Column(String(100), nullable=True)                # 商業發票號碼
+    voyage_no             = Column(String(100), nullable=True)                # 航次號碼
+    # ── H-01：海運強化 18+ 里程碑欄位 ────────────────────────────────────
+    shipping_mode         = Column(String(10), nullable=True)                 # FCL/LCL
+    container_type        = Column(String(10), nullable=True)                 # 20RF/40RF/40HC
+    forwarder             = Column(String(200), nullable=True)                # 承攬業者
+    customs_broker        = Column(String(200), nullable=True)                # 報關行
+    shipping_line         = Column(String(200), nullable=True)                # 船公司
+    factory_exit_date     = Column(Date, nullable=True)                       # 工廠出貨日
+    consolidation_date    = Column(Date, nullable=True)                       # 併裝日
+    container_loading_date = Column(Date, nullable=True)                      # 裝櫃日
+    customs_declare_date  = Column(Date, nullable=True)                       # 泰國報關日
+    customs_cleared_date  = Column(Date, nullable=True)                       # 泰國放行日
+    transshipment_port    = Column(String(100), nullable=True)                # 轉運港
+    transshipment_date    = Column(Date, nullable=True)                       # 轉運日
+    destination_customs_date = Column(Date, nullable=True)                    # 台灣報關日
+    devanning_date        = Column(Date, nullable=True)                       # 拆櫃日
+    warehouse_in_date     = Column(Date, nullable=True)                       # 入庫日
+    ocean_freight_cost    = Column(Numeric(12, 2), nullable=True)             # 海運費（USD）
+    document_fee          = Column(Numeric(10, 2), nullable=True)             # 文件費（USD）
+    port_charge           = Column(Numeric(10, 2), nullable=True)             # 港口雜費（USD）
+    trucking_fee          = Column(Numeric(10, 2), nullable=True)             # 內陸運費（TWD）
+    storage_fee           = Column(Numeric(10, 2), nullable=True)             # 倉儲費（TWD）
+    total_logistics_cost_twd = Column(Numeric(14, 2), nullable=True)          # 總物流成本（TWD）
+
     created_by           = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    updated_by           = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)   # 最後更新者
     created_at           = Column(DateTime, default=datetime.utcnow)
     updated_at           = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     shipment_batches = relationship("ShipmentBatch", back_populates="shipment", cascade="all, delete-orphan")
     creator          = relationship("User", foreign_keys=[created_by])
+    updater          = relationship("User", foreign_keys=[updated_by])
 
 
 class ShipmentBatch(Base):

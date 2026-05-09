@@ -47,6 +47,33 @@ def start_scheduler():
         replace_existing=True,
     )
 
+    # 每天 02:00 — 客戶健康分 + 訂單預測重算
+    _scheduler.add_job(
+        _customer_health_job,
+        CronTrigger(hour=2, minute=0),
+        id="customer_health_recalc",
+        name="客戶健康分 / 訂單預測重算",
+        replace_existing=True,
+    )
+
+    # 每天 03:00 — 貿易文件到期提醒
+    _scheduler.add_job(
+        _trade_doc_expiry_job,
+        CronTrigger(hour=3, minute=0),
+        id="trade_doc_expiry_check",
+        name="貿易文件到期提醒",
+        replace_existing=True,
+    )
+
+    # 每天 06:00 — 合約到期提醒
+    _scheduler.add_job(
+        _contract_expiry_job,
+        CronTrigger(hour=6, minute=0),
+        id="contract_expiry_check",
+        name="合約到期提醒",
+        replace_existing=True,
+    )
+
     _scheduler.start()
     logger.info("排程引擎已啟動")
 
@@ -69,6 +96,108 @@ def _daily_summary_job():
         logger.info("每日摘要已自動生成")
     except Exception as e:
         logger.error(f"每日摘要生成失敗: {e}")
+    finally:
+        db.close()
+
+
+def _customer_health_job():
+    """每日客戶健康分 + 訂單預測重算"""
+    from database import SessionLocal
+    db = SessionLocal()
+    try:
+        from services.health_score import recalc_all_customers
+        from services.order_prediction import update_customer_prediction
+        from models.customer import Customer
+
+        recalc_all_customers(db)
+
+        customers = db.query(Customer).filter(
+            Customer.is_active == True,
+            Customer.deleted_at.is_(None),
+        ).all()
+        for c in customers:
+            try:
+                update_customer_prediction(db, c.id)
+            except Exception:
+                pass
+        db.commit()
+        logger.info("客戶健康分 / 訂單預測重算完成")
+    except Exception as e:
+        logger.error(f"客戶健康分重算失敗: {e}")
+    finally:
+        db.close()
+
+
+def _trade_doc_expiry_job():
+    """貿易文件到期提醒（30 天內）"""
+    from datetime import date, timedelta
+    from database import SessionLocal
+    db = SessionLocal()
+    try:
+        from models.trade import TradeDocument
+        from services.notification import notify_by_role
+
+        threshold = date.today() + timedelta(days=30)
+        docs = db.query(TradeDocument).filter(
+            TradeDocument.deleted_at.is_(None),
+            TradeDocument.expiry_date.isnot(None),
+            TradeDocument.expiry_date >= date.today(),
+            TradeDocument.expiry_date <= threshold,
+        ).all()
+
+        if docs:
+            notify_by_role(
+                db,
+                roles=["admin", "ops_manager"],
+                title=f"⚠️ 有 {len(docs)} 份貿易文件將於 30 天內到期",
+                message={"count": len(docs), "date": date.today().isoformat()},
+                notification_type="system_alert",
+                category="trade",
+                priority="high",
+            )
+            logger.info(f"貿易文件到期提醒：{len(docs)} 份")
+    except Exception as e:
+        logger.error(f"貿易文件到期提醒失敗: {e}")
+    finally:
+        db.close()
+
+
+def _contract_expiry_job():
+    """合約到期提醒（依各合約 reminder_days 設定）"""
+    from datetime import date, timedelta
+    from database import SessionLocal
+    db = SessionLocal()
+    try:
+        from models.compliance import Contract
+        from services.notification import notify_by_role
+
+        today = date.today()
+        # 取未終止 / 到期的合約
+        contracts = db.query(Contract).filter(
+            Contract.deleted_at.is_(None),
+            Contract.status == "active",
+            Contract.effective_to.isnot(None),
+        ).all()
+
+        expiring = []
+        for c in contracts:
+            days_left = (c.effective_to - today).days
+            if 0 <= days_left <= (c.reminder_days or 30):
+                expiring.append(c)
+
+        if expiring:
+            notify_by_role(
+                db,
+                roles=["admin", "finance"],
+                title=f"📋 有 {len(expiring)} 份合約即將到期",
+                message={"count": len(expiring), "date": today.isoformat()},
+                notification_type="system_alert",
+                category="finance",
+                priority="normal",
+            )
+            logger.info(f"合約到期提醒：{len(expiring)} 份")
+    except Exception as e:
+        logger.error(f"合約到期提醒失敗: {e}")
     finally:
         db.close()
 

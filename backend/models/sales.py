@@ -27,8 +27,17 @@ class SalesOrder(Base):
     total_amount_twd = Column(Numeric(14, 2), nullable=False, default=Decimal("0"))  # 總金額（TWD）
     status           = Column(String(20), nullable=False, default="draft")
     note             = Column(Text, nullable=True)
+    # ── 國際貿易欄位（B-02）────────────────────────────────────────────────
+    currency           = Column(String(3), default="TWD", nullable=False)          # 交易幣別（TWD/USD/JPY/THB）
+    exchange_rate      = Column(Numeric(10, 4), default=1, nullable=False)         # 對 TWD 匯率
+    customer_po_number = Column(String(100), nullable=True)                        # 客戶 PO 編號
+    delivery_address   = Column(Text, nullable=True)                               # 送貨地址
+    incoterm           = Column(String(10), nullable=True)                         # 貿易條件（EXW/FOB/CIF/DDP）
+
     idempotency_key  = Column(String(100), unique=True, nullable=True)          # 冪等鍵（防重複送出）
     created_by       = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    updated_by       = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)   # 最後更新者
+    deleted_at       = Column(DateTime, nullable=True)                                      # 軟刪除時間
     created_at       = Column(DateTime, default=datetime.utcnow)
     updated_at       = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -36,6 +45,7 @@ class SalesOrder(Base):
     items    = relationship("SalesOrderItem", back_populates="sales_order", cascade="all, delete-orphan")
     payments = relationship("PaymentRecord", back_populates="sales_order")
     creator  = relationship("User", foreign_keys=[created_by])
+    updater  = relationship("User", foreign_keys=[updated_by])
 
 
 class SalesOrderItem(Base):

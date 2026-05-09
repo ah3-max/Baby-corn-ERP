@@ -5,7 +5,7 @@
 """
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, Boolean, Integer
+from sqlalchemy import Column, String, DateTime, Boolean, Integer, Numeric
 from sqlalchemy.dialects.postgresql import UUID, JSON
 
 from database import Base
@@ -30,6 +30,13 @@ class ProductType(Base):
     processing_steps  = Column(JSON, default=list)                         # 加工步驟定義
     storage_req       = Column(JSON, default=dict)                         # 儲存要求，如 {"temp_min": 2, "temp_max": 5}
     shelf_life_days   = Column(Integer, nullable=True)                     # 預設保存天數
+    # ── B-05 貿易/認證欄位 ────────────────────────────────────────────
+    hs_code               = Column(String(20), nullable=True)        # HS 稅則號碼（出口用）
+    base_uom              = Column(String(10), default="kg")         # 基本單位（kg/box/piece）
+    min_order_qty         = Column(Numeric(10, 2), nullable=True)    # 最小訂購量
+    certifications_required = Column(JSON, default=list)             # 需要的認證清單 JSON
+
     is_active         = Column(Boolean, default=True, nullable=False)
+    deleted_at        = Column(DateTime, nullable=True)
     created_at        = Column(DateTime, default=datetime.utcnow)
     updated_at        = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
