@@ -20,6 +20,7 @@ build/
 # 系統檔案
 .DS_Store
 Thumbs.db
+__MACOSX/
 
 # Docker
 *.log
